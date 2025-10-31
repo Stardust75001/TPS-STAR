@@ -1,0 +1,10 @@
+.DS_Store
+*.map
+node_modules/
+dist/
+.env*
+.vscode/
+*.log
+.shopify/
+assets/sentry-init.js
+assets/variables.css
