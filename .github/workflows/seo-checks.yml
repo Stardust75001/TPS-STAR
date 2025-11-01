@@ -1,0 +1,18 @@
+  ahrefs:
+    needs: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Run Ahrefs (proxy CF)
+        env:
+          TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
+        run: |
+          DOMAIN="${TPS_DOMAIN#https://}"; DOMAIN="${DOMAIN#http://}"
+          curl -s "https://<ton-worker>.workers.dev/ahrefs/metrics?target=${DOMAIN}&mode=domain" > out/ahrefs_metrics.json
+          jq . out/ahrefs_metrics.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seo-ahrefs
+          path: out/
