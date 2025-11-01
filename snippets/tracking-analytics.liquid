@@ -1,0 +1,105 @@
+{% comment %}
+  Universal Tracking & Analytics Snippet
+  This snippet centralizes all tracking codes and analytics integrations
+{% endcomment %}
+
+{% comment %} Google Tag Manager {% endcomment %}
+{% if settings.google_tag_manager_id != blank %}
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','{{ settings.google_tag_manager_id }}');</script>
+  <!-- End Google Tag Manager -->
+{% endif %}
+
+{% comment %} Google Analytics 4 {% endcomment %}
+{% if settings.google_analytics_4_measurement_id != blank %}
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ settings.google_analytics_4_measurement_id }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '{{ settings.google_analytics_4_measurement_id }}');
+  </script>
+{% endif %}
+
+{% comment %} Meta Pixel {% endcomment %}
+{% if settings.meta_pixel_id != blank %}
+  <!-- Meta Pixel Code -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '{{ settings.meta_pixel_id }}');
+  fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id={{ settings.meta_pixel_id }}&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
+{% endif %}
+
+{% comment %} Sentry Error Monitoring {% endcomment %}
+{% if settings.tracking_sentry_dsn != blank %}
+  <script
+    src="https://browser.sentry-cdn.com/8.36.0/bundle.tracing.min.js"
+    integrity="sha384-hgB1rNnl6sZ7WQFgF7cQnOvuSJR4AUvPOZxQjrKfpMq/dNLUFRQ4qFNxqCjHdXRa"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    Sentry.init({
+      dsn: "{{ settings.tracking_sentry_dsn }}",
+      {% if settings.tracking_sentry_environment != blank %}
+        environment: "{{ settings.tracking_sentry_environment }}",
+      {% endif %}
+      integrations: [
+        Sentry.browserTracingIntegration(),
+      ],
+      tracesSampleRate: 0.1,
+    });
+  </script>
+{% endif %}
+
+{% comment %} Cloudflare Beacon {% endcomment %}
+{% if settings.cloudflare_beacon_token != blank %}
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" 
+          data-cf-beacon='{"token": "{{ settings.cloudflare_beacon_token }}"}'></script>
+{% endif %}
+
+{% comment %} Google Search Console Verification {% endcomment %}
+{% if settings.google_search_console_verification != blank %}
+  <meta name="google-site-verification" content="{{ settings.google_search_console_verification }}" />
+{% endif %}
+
+{% comment %} Ahrefs Verification {% endcomment %}
+{% if settings.ahrefs_verification != blank %}
+  <meta name="ahrefs-site-verification" content="{{ settings.ahrefs_verification }}">
+{% endif %}
+
+{% comment %} Zik Analytics {% endcomment %}
+{% if settings.zik_analytics_script_url != blank %}
+  <script async src="{{ settings.zik_analytics_script_url }}"></script>
+{% endif %}
+
+{% comment %} Debug Console for Development {% endcomment %}
+{% if settings.active_debug_console %}
+  <script>
+    console.log("🔍 Tracking & Analytics Debug Mode Active");
+    console.log("📊 Google Tag Manager:", "{{ settings.google_tag_manager_id | default: 'Not configured' }}");
+    console.log("📈 Google Analytics 4:", "{{ settings.google_analytics_4_measurement_id | default: 'Not configured' }}");
+    console.log("📘 Meta Pixel:", "{{ settings.meta_pixel_id | default: 'Not configured' }}");
+    console.log("🚨 Sentry DSN:", "{{ settings.tracking_sentry_dsn | default: 'Not configured' }}");
+    console.log("🛡️ Cloudflare Beacon:", "{{ settings.cloudflare_beacon_token | default: 'Not configured' }}");
+    console.log("🔎 Google Search Console:", "{{ settings.google_search_console_verification | default: 'Not configured' }}");
+    console.log("🔗 Ahrefs:", "{{ settings.ahrefs_verification | default: 'Not configured' }}");
+    console.log("📊 Zik Analytics:", "{{ settings.zik_analytics_script_url | default: 'Not configured' }}");
+  </script>
+{% endif %}
