@@ -6,9 +6,9 @@ on:
   workflow_dispatch: {}
 
 env:
-  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}                 # ex: https://thepetsociety.paris
-  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}         # Token Ahrefs v3 (Enterprise)
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}   # optionnel
+  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
+  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   seo:
