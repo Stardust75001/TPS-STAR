@@ -17,6 +17,7 @@ env:
   EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}
   EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}
   EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}
+  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }} # facultatif
 
 jobs:
   audit:
@@ -32,13 +33,13 @@ jobs:
         env:
           PATH_TO_TEST: ${{ github.event.inputs.path || '/' }}
         run: |
-          URL="${DOMAIN}${PATH_TO_TEST}"
+          URL="${DOMAIN%/}${PATH_TO_TEST}"
           echo "URL: $URL"
-          http_code=$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")
-          echo "HTTP: $http_code"
-          [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ] || { echo "❌ Page non accessible ($http_code)"; exit 1; }
+          code=$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")
+          echo "HTTP: $code"
+          [ "$code" -ge 200 ] && [ "$code" -lt 400 ] || { echo "❌ Page non accessible ($code)"; exit 1; }
           curl -sL -A "TPS-Bot/1.0 (+audit-trackers)" "$URL" > page.html
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: 🧪 Vérifie les trackers
         id: check
@@ -46,25 +47,29 @@ jobs:
           fail=0
           show(){ printf "%s\n" "$*"; }
 
+          # GA4
           if [ -n "${EXPECT_GA4_ID}" ]; then
             grep -q "${EXPECT_GA4_ID}" page.html && show "✅ GA4 (${EXPECT_GA4_ID})" || { show "❌ GA4 attendu non trouvé (${EXPECT_GA4_ID})"; fail=1; }
           else
             grep -Eq 'gtag/js\?id=G-|G-[A-Z0-9]+' page.html && show "✅ GA4 (pattern)" || show "⚠️ GA4 non détecté (pattern)"
           fi
 
+          # Meta Pixel
           if [ -n "${EXPECT_META_PIXEL_ID}" ]; then
             grep -q "${EXPECT_META_PIXEL_ID}" page.html && show "✅ Meta Pixel (${EXPECT_META_PIXEL_ID})" || { show "❌ Meta Pixel attendu non trouvé (${EXPECT_META_PIXEL_ID})"; fail=1; }
           else
             grep -q "fbq(" page.html && show "✅ Meta Pixel (pattern)" || show "⚠️ Meta Pixel non détecté (pattern)"
           fi
 
+          # Ahrefs verification (balise meta)
           if [ -n "${EXPECT_AHREFS_VERIF}" ]; then
-            grep -q "<meta[^>]*name=['\"]ahrefs-site-verification['\"][^>]*content=['\"]${EXPECT_AHREFS_VERIF}['\"]" page.html \
+            grep -qi "<meta[^>]*name=['\"]ahrefs-site-verification['\"][^>]*content=['\"]${EXPECT_AHREFS_VERIF}['\"]" page.html \
               && show "✅ Ahrefs verification" || { show "❌ Ahrefs verification manquante ou incorrecte"; fail=1; }
           else
-            grep -q "ahrefs-site-verification" page.html && show "✅ Ahrefs verification (pattern)" || show "⚠️ Ahrefs verification non détectée"
+            grep -qi "ahrefs-site-verification" page.html && show "✅ Ahrefs verification (pattern)" || show "⚠️ Ahrefs verification non détectée"
           fi
 
+          # Cloudflare Beacon
           if [ -n "${EXPECT_CF_TOKEN}" ]; then
             grep -q "cloudflareinsights.com/beacon.min.js" page.html && grep -q "${EXPECT_CF_TOKEN}" page.html \
               && show "✅ Cloudflare Beacon (token ok)" || { show "❌ Cloudflare Beacon manquant ou token différent"; fail=1; }
@@ -72,6 +77,7 @@ jobs:
             grep -q "cloudflareinsights.com/beacon.min.js" page.html && show "✅ Cloudflare Beacon (pattern)" || show "⚠️ Cloudflare Beacon non détecté"
           fi
 
+          # Sentry
           if [ -n "${EXPECT_SENTRY_DSN}" ]; then
             grep -q "${EXPECT_SENTRY_DSN}" page.html && show "✅ Sentry (DSN trouvé)" || { show "❌ Sentry DSN non trouvé"; fail=1; }
           else
@@ -79,8 +85,37 @@ jobs:
           fi
 
           if [ $fail -eq 0 ]; then status="SUCCESS ✅"; else status="FAILED ❌"; fi
-          echo "status=$status" >> $GITHUB_OUTPUT
-          exit $fail
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "$fail" > fail.flag
+          exit $fail || true
+
+      - name: 📈 Ahrefs v3 (facultatif)
+        if: always()
+        id: ahrefs
+        run: |
+          host="$(echo "${DOMAIN}" | sed 's#https\?://##; s#/$##')"
+          if [ -n "${AHREFS_API_KEY}" ]; then
+            echo "→ Test Ahrefs v3 metrics pour ${host}…"
+            res="$(curl -s -H "Authorization: Bearer ${AHREFS_API_KEY}" \
+              "https://api.ahrefs.com/v3/site-explorer/metrics?target=${host}&mode=domain")"
+            echo "$res" > ahrefs.json
+            if echo "$res" | grep -q '"Error"'; then
+              echo "⚠️ Ahrefs: plan sans accès API ou clé invalide (OK si non Enterprise)."
+            fi
+          else
+            echo '{"info":"AHREFS_API_KEY absent"}' > ahrefs.json
+            echo "ℹ️ AHREFS_API_KEY non défini — on saute l’appel API."
+          fi
+
+      - name: 📦 Archive (page + logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-trackers-artifacts
+          path: |
+            page.html
+            fail.flag
+            ahrefs.json
 
       - name: ✉️ Prépare le payload Slack
         if: always()
@@ -105,3 +140,8 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEB
+
+      - name: 🔴 Échec si erreurs critiques
+        if: always()
+        run: |
+          [ -f fail.flag ] && [ "$(cat fail.flag)" != "0" ] && { echo "❌ Échecs détectés"; exit 1; } || echo "✅ OK"
