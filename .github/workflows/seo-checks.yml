@@ -1,3 +1,5 @@
+mkdir -p .github/workflows
+cat > .github/workflows/seo-checks.yml <<'YAML'
 name: "🔎 SEO Checks (Ahrefs v3)"
 
 on:
@@ -34,7 +36,6 @@ jobs:
             "https://api.ahrefs.com/v3/site-explorer/metrics?target=${TARGET}&mode=domain")
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
-          # Parse souple (placeholders 'n/a' si la clé change côté Ahrefs)
           DR=$(jq -r '..|objects|to_entries[]?|select(.key=="domain_rating")|.value' out/ahrefs_metrics.json | head -n1 || true)
           BL=$(jq -r '..|objects|to_entries[]?|select(.key=="backlinks")|.value'      out/ahrefs_metrics.json | head -n1 || true)
           RD=$(jq -r '..|objects|to_entries[]?|select(.key=="ref_domains")|.value'    out/ahrefs_metrics.json | head -n1 || true)
@@ -77,3 +78,4 @@ jobs:
           JSON
           curl -s -X POST -H 'Content-type: application/json' \
             --data @slack-temp.json "$SLACK_WEBHOOK_URL" >/dev/null || true
+YAML
