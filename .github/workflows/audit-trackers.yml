@@ -11,7 +11,7 @@ on:
         required: true
 
 env:
-  DOMAIN: ${{ secrets.TPS_DOMAIN }}                       # ex: https://thepetsociety.paris
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}                        # ex: https://thepetsociety.paris
   EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}             # ex: G-XXXXXXX (facultatif)
   EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}# ex: 1234567890
   EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }} # meta ahrefs-site-verification
@@ -24,13 +24,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout (full history for Sentry set_commits)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 🔎 Télécharge la page cible
         id: fetch
         env:
-          PATH_TO_TEST: ${{ github.event.inputs.path || '/' }}
+          # Utilise l'input s'il est présent, sinon "/"
+          PATH_TO_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.path || '/' }}
         run: |
           set -euo pipefail
           [[ -n "${DOMAIN:-}" ]] || { echo "❌ secrets.TPS_DOMAIN manquant"; exit 1; }
@@ -101,11 +104,13 @@ jobs:
           fi
 
           # Expose outputs
-          echo "ga4=${GA4_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "meta=${META_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "ahrefs=${AHREFS_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "cf=${CF_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "sentry=${SENTRY_STATUS}" >> "$GITHUB_OUTPUT"
+          {
+            echo "ga4=${GA4_STATUS}"
+            echo "meta=${META_STATUS}"
+            echo "ahrefs=${AHREFS_STATUS}"
+            echo "cf=${CF_STATUS}"
+            echo "sentry=${SENTRY_STATUS}"
+          } >> "$GITHUB_OUTPUT"
 
           # JSON brut
           cat > out/audit.json <<JSON
@@ -271,7 +276,6 @@ jobs:
 
           # Remplace le placeholder __DATA__
           perl -0777 -pe 's/__DATA__/'"$(printf '%s' "$payload" | perl -MURI::Escape -ne 'chomp;print')"'/g' -i out/report.html || true
-          # fallback sed (simple)
           sed -i.bak "s|__DATA__|${payload}|" out/report.html || true
           rm -f out/report.html.bak
 
@@ -307,7 +311,7 @@ jobs:
         if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
         env:
           URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          URL_ART: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}   # page artefacts
+          URL_ART: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GA4:     ${{ steps.scan.outputs.ga4 }}
           META:    ${{ steps.scan.outputs.meta }}
           AHREFS:  ${{ steps.scan.outputs.ahrefs }}
