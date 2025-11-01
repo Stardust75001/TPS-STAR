@@ -66,6 +66,7 @@
     "cloudflare_beacon_token": "21fd2470e9d4abb8ca941b35cf6237",
     "google_search_console_verification": "XEXjAupV4YyHm0YHbseH_xKf6Tc",
     "ahrefs_verification": "nzsn5xvamw9bjgtyx6egp9rnhwz2",
+    "active_debug_console": true,
     "enable_right_clic": true,
     "enable_text_selection": true,
     "enable_image_drag": true,
