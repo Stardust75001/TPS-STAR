@@ -11,13 +11,13 @@ on:
         required: true
 
 env:
-  DOMAIN: ${{ secrets.TPS_DOMAIN }}                        # ex: https://thepetsociety.paris
-  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}             # ex: G-XXXXXXX (facultatif)
-  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}# ex: 1234567890
-  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }} # meta ahrefs-site-verification
-  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}         # token Cloudflare Beacon
-  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}     # DSN complet (facultatif)
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}     # optionnel
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}                         # ex: https://thepetsociety.paris
+  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}              # ex: G-XXXXXXX (facultatif)
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }} # ex: 1234567890
+  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}  # meta ahrefs-site-verification
+  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}          # token Cloudflare Beacon
+  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}      # DSN complet (facultatif)
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}      # optionnel
 
 jobs:
   audit:
@@ -32,7 +32,6 @@ jobs:
       - name: 🔎 Télécharge la page cible
         id: fetch
         env:
-          # Utilise l'input s'il est présent, sinon "/"
           PATH_TO_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.path || '/' }}
         run: |
           set -euo pipefail
@@ -103,7 +102,6 @@ jobs:
             grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && SENTRY_STATUS=$(ok) || SENTRY_STATUS=$(ko)
           fi
 
-          # Expose outputs
           {
             echo "ga4=${GA4_STATUS}"
             echo "meta=${META_STATUS}"
@@ -112,7 +110,6 @@ jobs:
             echo "sentry=${SENTRY_STATUS}"
           } >> "$GITHUB_OUTPUT"
 
-          # JSON brut
           cat > out/audit.json <<JSON
           {
             "ga4": "${GA4_STATUS}",
@@ -260,7 +257,6 @@ jobs:
           </html>
           CSSHTML
 
-          # JSON injecté dans le template
           if command -v jq >/dev/null; then
             payload=$(jq -nc \
               --arg url "${URL}" \
@@ -274,7 +270,6 @@ jobs:
             payload='{"url":"'"${URL}"'","ga4":"'"${GA4}"'","meta_pixel":"'"${META}"'","ahrefs_verification":"'"${AHREFS}"'","cloudflare_beacon":"'"${CF}"'","sentry":"'"${SENTRY}"'"}'
           fi
 
-          # Remplace le placeholder __DATA__
           perl -0777 -pe 's/__DATA__/'"$(printf '%s' "$payload" | perl -MURI::Escape -ne 'chomp;print')"'/g' -i out/report.html || true
           sed -i.bak "s|__DATA__|${payload}|" out/report.html || true
           rm -f out/report.html.bak
@@ -297,8 +292,9 @@ jobs:
         uses: getsentry/action-release@v2
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_ORG:        ${{ secrets.SENTRY_ORG }}     # ex: falcon-trading-ep
+          SENTRY_PROJECT:    ${{ secrets.SENTRY_PROJECT }} # ex: tps-star
+          SENTRY_LOG_LEVEL:  debug
         with:
           environment: production
           version: ${{ github.sha }}
