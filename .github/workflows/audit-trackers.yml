@@ -1,0 +1,107 @@
+name: "🔎 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Chemin à tester (ex: /, /collections/all, /products/foo)"
+        default: "/"
+        required: true
+  schedule:
+    - cron: "15 3 * * *" # 03:15 UTC quotidien
+
+env:
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}
+  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}
+  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}
+  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}
+  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ Sanity check des variables
+        run: |
+          test -n "${DOMAIN}" || { echo "❌ secrets.TPS_DOMAIN manquant"; exit 1; }
+          echo "🔗 Domaine: ${DOMAIN}"
+
+      - name: 🔍 Télécharge la page cible
+        id: fetch
+        env:
+          PATH_TO_TEST: ${{ github.event.inputs.path || '/' }}
+        run: |
+          URL="${DOMAIN}${PATH_TO_TEST}"
+          echo "URL: $URL"
+          http_code=$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")
+          echo "HTTP: $http_code"
+          [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ] || { echo "❌ Page non accessible ($http_code)"; exit 1; }
+          curl -sL -A "TPS-Bot/1.0 (+audit-trackers)" "$URL" > page.html
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: 🧪 Vérifie les trackers
+        id: check
+        run: |
+          fail=0
+          show(){ printf "%s\n" "$*"; }
+
+          if [ -n "${EXPECT_GA4_ID}" ]; then
+            grep -q "${EXPECT_GA4_ID}" page.html && show "✅ GA4 (${EXPECT_GA4_ID})" || { show "❌ GA4 attendu non trouvé (${EXPECT_GA4_ID})"; fail=1; }
+          else
+            grep -Eq 'gtag/js\?id=G-|G-[A-Z0-9]+' page.html && show "✅ GA4 (pattern)" || show "⚠️ GA4 non détecté (pattern)"
+          fi
+
+          if [ -n "${EXPECT_META_PIXEL_ID}" ]; then
+            grep -q "${EXPECT_META_PIXEL_ID}" page.html && show "✅ Meta Pixel (${EXPECT_META_PIXEL_ID})" || { show "❌ Meta Pixel attendu non trouvé (${EXPECT_META_PIXEL_ID})"; fail=1; }
+          else
+            grep -q "fbq(" page.html && show "✅ Meta Pixel (pattern)" || show "⚠️ Meta Pixel non détecté (pattern)"
+          fi
+
+          if [ -n "${EXPECT_AHREFS_VERIF}" ]; then
+            grep -q "<meta[^>]*name=['\"]ahrefs-site-verification['\"][^>]*content=['\"]${EXPECT_AHREFS_VERIF}['\"]" page.html \
+              && show "✅ Ahrefs verification" || { show "❌ Ahrefs verification manquante ou incorrecte"; fail=1; }
+          else
+            grep -q "ahrefs-site-verification" page.html && show "✅ Ahrefs verification (pattern)" || show "⚠️ Ahrefs verification non détectée"
+          fi
+
+          if [ -n "${EXPECT_CF_TOKEN}" ]; then
+            grep -q "cloudflareinsights.com/beacon.min.js" page.html && grep -q "${EXPECT_CF_TOKEN}" page.html \
+              && show "✅ Cloudflare Beacon (token ok)" || { show "❌ Cloudflare Beacon manquant ou token différent"; fail=1; }
+          else
+            grep -q "cloudflareinsights.com/beacon.min.js" page.html && show "✅ Cloudflare Beacon (pattern)" || show "⚠️ Cloudflare Beacon non détecté"
+          fi
+
+          if [ -n "${EXPECT_SENTRY_DSN}" ]; then
+            grep -q "${EXPECT_SENTRY_DSN}" page.html && show "✅ Sentry (DSN trouvé)" || { show "❌ Sentry DSN non trouvé"; fail=1; }
+          else
+            grep -q "browser.sentry-cdn.com" page.html && show "✅ Sentry (pattern)" || show "⚠️ Sentry non détecté"
+          fi
+
+          if [ $fail -eq 0 ]; then status="SUCCESS ✅"; else status="FAILED ❌"; fi
+          echo "status=$status" >> $GITHUB_OUTPUT
+          exit $fail
+
+      - name: ✉️ Prépare le payload Slack
+        if: always()
+        run: |
+          URL="${{ steps.fetch.outputs.url }}"
+          STATUS="${{ steps.check.outputs.status }}"
+          {
+            echo '{'
+            echo '  "text": "*TPS-STAR — Audit Trackers*",'
+            echo '  "blocks": ['
+            echo '    {"type":"section","text":{"type":"mrkdwn","text":"*'"$STATUS"'* — <'"$URL"'|'"$URL"'>"}},'
+            echo '    {"type":"context","elements":[{"type":"mrkdwn","text":"Run: <https://github.com/'"${{ github.repository }}"'/actions/runs/'"${{ github.run_id }}"'|#'"${{ github.run_number }}"'>"}]}'
+            echo '  ]'
+            echo '}'
+          } > slack-temp.json
+
+      - name: 💬 Notification Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload-file-path: slack-temp.json
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEB
