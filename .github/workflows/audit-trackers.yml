@@ -11,12 +11,13 @@ on:
         required: true
 
 env:
-  DOMAIN: ${{ secrets.TPS_DOMAIN }}                 # ex: https://thepetsociety.paris
-  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}       # ex: G-XXXXXXX (facultatif, sinon pattern)
-  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }} # ex: 1234567890
-  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}   # meta ahrefs-site-verification
-  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}   # token Cloudflare Beacon
-  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}       # DSN complet (facultatif, sinon pattern)
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}                       # ex: https://thepetsociety.paris
+  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}             # ex: G-XXXXXXX (facultatif)
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}# ex: 1234567890
+  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }} # meta ahrefs-site-verification
+  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}         # token Cloudflare Beacon
+  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}     # DSN complet (facultatif)
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}     # optionnel
 
 jobs:
   audit:
@@ -53,7 +54,6 @@ jobs:
           set -euo pipefail
           page="out/fetched.html"
 
-          # Helpers
           ok(){ echo "ok"; }
           ko(){ echo "missing"; }
 
@@ -107,7 +107,7 @@ jobs:
           echo "cf=${CF_STATUS}" >> "$GITHUB_OUTPUT"
           echo "sentry=${SENTRY_STATUS}" >> "$GITHUB_OUTPUT"
 
-          # JSON brut des résultats
+          # JSON brut
           cat > out/audit.json <<JSON
           {
             "ga4": "${GA4_STATUS}",
@@ -130,19 +130,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          badge(){
-            case "$1" in
-              ok) echo '<span class="badge ok">OK</span>' ;;
-              missing) echo '<span class="badge ko">Missing</span>' ;;
-              *) echo '<span class="badge ko">Unknown</span>' ;;
-            esac
-          }
-
-          OVERALL="OK"
-          for v in "$GA4" "$META" "$AHREFS" "$CF" "$SENTRY"; do
-            if [ "$v" != "ok" ]; then OVERALL="ACTION NEEDED"; break; fi
-          done
-
           cat > out/report.html <<'CSSHTML'
           <!doctype html>
           <html lang="fr">
@@ -151,35 +138,34 @@ jobs:
             <title>Audit Trackers — Rapport</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-              :root {
-                --bg: #0f1220; --card:#14182b; --soft:#1b2140; --txt:#e7ecff;
-                --ok:#2ecc71; --ko:#ff5c5c; --warn:#f1c40f; --muted:#9aa3c7;
-              }
-              * { box-sizing: border-box; }
-              body { margin:0; padding:32px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; color:var(--txt); background:linear-gradient(180deg,#0b0f1a 0%, #0f1220 100%); }
-              .wrap { max-width:1000px; margin:0 auto; }
-              .title { display:flex; align-items:center; gap:12px; margin:0 0 16px; }
-              .subtitle { color:var(--muted); margin:0 0 24px; }
-              .pill { padding:6px 10px; border-radius:999px; background:var(--soft); color:var(--muted); font-size:12px; letter-spacing:.3px; }
-              .status { padding:6px 12px; border-radius:8px; font-weight:700; display:inline-block; }
-              .status.ok { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.35); }
-              .status.warn { background:rgba(241,196,15,.12); color:var(--warn); border:1px solid rgba(241,196,15,.35); }
-              .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); margin:24px 0; }
-              .card { background:linear-gradient(180deg, #151a31, #12162a); border:1px solid #252b47; border-radius:14px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-              .card h3 { margin:0 0 10px; font-size:16px; }
-              .line { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px dashed #2a3258; }
-              .line:first-child { border-top:0; }
-              .badge { padding:4px 8px; border-radius:6px; font-size:12px; font-weight:700; }
-              .badge.ok { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.3); }
-              .badge.ko { background:rgba(255,92,92,.15); color:var(--ko); border:1px solid rgba(255,92,92,.3); }
-              .muted { color:var(--muted); font-size:13px; }
-              .actions ul { margin:8px 0 0; padding-left:18px; }
-              .footer { margin-top:28px; color:var(--muted); font-size:12px; }
-              a { color:#7aa2ff; text-decoration:none; }
-              .hero { display:flex; gap:12px; align-items:center; justify-content:space-between; background:linear-gradient(135deg, #151a31 0%, #0e1330 100%); border:1px solid #262e55; border-radius:16px; padding:16px; }
-              .hero .left { display:flex; gap:12px; align-items:center; }
-              .chip { background:#0c1030; border:1px solid #1c2450; padding:6px 10px; border-radius:10px; font-size:12px; color:var(--muted); }
-              .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0c1130; border:1px solid #1d2553; padding:2px 6px; border-radius:6px; }
+              :root { --bg:#0f1220; --card:#14182b; --soft:#1b2140; --txt:#e7ecff;
+                      --ok:#2ecc71; --ko:#ff5c5c; --warn:#f1c40f; --muted:#9aa3c7; }
+              *{ box-sizing:border-box }
+              body{ margin:0; padding:32px; font-family:ui-sans-serif,-apple-system; color:var(--txt);
+                    background:linear-gradient(180deg,#0b0f1a 0%, #0f1220 100%) }
+              .wrap{ max-width:1000px; margin:0 auto }
+              .title{ display:flex; gap:12px; align-items:center; margin:0 0 16px }
+              .subtitle{ color:var(--muted); margin:0 0 24px }
+              .pill{ padding:6px 10px; border-radius:999px; background:var(--soft); color:var(--muted); font-size:12px }
+              .status{ padding:6px 12px; border-radius:8px; font-weight:700; display:inline-block }
+              .status.ok{ background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.35) }
+              .status.warn{ background:rgba(241,196,15,.12); color:var(--warn); border:1px solid rgba(241,196,15,.35) }
+              .grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); margin:24px 0 }
+              .card{ background:linear-gradient(180deg,#151a31,#12162a); border:1px solid #252b47; border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.25) }
+              .card h3{ margin:0 0 10px; font-size:16px }
+              .line{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px dashed #2a3258 }
+              .line:first-child{ border-top:0 }
+              .badge{ padding:4px 8px; border-radius:6px; font-size:12px; font-weight:700 }
+              .badge.ok{ background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.3) }
+              .badge.ko{ background:rgba(255,92,92,.15); color:var(--ko); border:1px solid rgba(255,92,92,.3) }
+              .muted{ color:var(--muted); font-size:13px }
+              .actions ul{ margin:8px 0 0; padding-left:18px }
+              .footer{ margin-top:28px; color:var(--muted); font-size:12px }
+              a{ color:#7aa2ff; text-decoration:none }
+              .hero{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:linear-gradient(135deg,#151a31 0%,#0e1330 100%); border:1px solid #262e55; border-radius:16px; padding:16px }
+              .hero .left{ display:flex; gap:12px; align-items:center }
+              .chip{ background:#0c1030; border:1px solid #1c2450; padding:6px 10px; border-radius:10px; font-size:12px; color:var(--muted) }
+              .kbd{ font-family:ui-monospace,Menlo,Consolas,monospace; background:#0c1130; border:1px solid #1d2553; padding:2px 6px; border-radius:6px }
             </style>
           </head>
           <body>
@@ -248,7 +234,6 @@ jobs:
             ov.textContent = ok ? "OK" : "ACTION NEEDED";
             ov.className = "status " + (ok ? "ok" : "warn");
 
-            // Analyse & actions ciblées
             const actions = [];
             if (data.ga4 !== "ok") actions.push("GA4 : vérifier l’ID (EXPECT_GA4_ID) et l’initialisation gtag.");
             if (data.meta_pixel !== "ok") actions.push("Meta Pixel : vérifier l’ID (EXPECT_META_PIXEL_ID) et fbq('init').");
@@ -270,12 +255,8 @@ jobs:
           </html>
           CSSHTML
 
-          # Injecte les données collectées dans le template
-          jq_available=0
-          command -v jq >/dev/null && jq_available=1
-
-          # Construit le JSON pour le script
-          if [ $jq_available -eq 1 ]; then
+          # JSON injecté dans le template
+          if command -v jq >/dev/null; then
             payload=$(jq -nc \
               --arg url "${URL}" \
               --arg ga4 "${GA4}" \
@@ -285,14 +266,13 @@ jobs:
               --arg sentry "${SENTRY}" \
               '{url:$url, ga4:$ga4, meta_pixel:$meta, ahrefs_verification:$ahrefs, cloudflare_beacon:$cf, sentry:$sentry}')
           else
-            payload=$(cat <<JSON
-          {"url":"${URL}","ga4":"${GA4}","meta_pixel":"${META}","ahrefs_verification":"${AHREFS}","cloudflare_beacon":"${CF}","sentry":"${SENTRY}"}
-          JSON
-          )
+            payload='{"url":"'"${URL}"'","ga4":"'"${GA4}"'","meta_pixel":"'"${META}"'","ahrefs_verification":"'"${AHREFS}"'","cloudflare_beacon":"'"${CF}"'","sentry":"'"${SENTRY}"'"}'
           fi
 
           # Remplace le placeholder __DATA__
-          sed -i.bak "s|__DATA__|${payload//|/\\|}|g" out/report.html
+          perl -0777 -pe 's/__DATA__/'"$(printf '%s' "$payload" | perl -MURI::Escape -ne 'chomp;print')"'/g' -i out/report.html || true
+          # fallback sed (simple)
+          sed -i.bak "s|__DATA__|${payload}|" out/report.html || true
           rm -f out/report.html.bak
 
       - name: 📦 Upload artefacts (rapport + JSON + page brute)
@@ -307,10 +287,53 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
+      # (optionnel) Release Sentry pour tracer ce run
+      - name: Sentry – create & finalize release
+        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        uses: getsentry/action-release@v2
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+          projects: ${{ secrets.SENTRY_PROJECT }}
+          set_commits: "auto"
+          finalize: true
+          ignore_empty: true
+
+      - name: 💬 Slack (résumé compact)
+        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
+        env:
+          URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          URL_ART: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}   # page artefacts
+          GA4:     ${{ steps.scan.outputs.ga4 }}
+          META:    ${{ steps.scan.outputs.meta }}
+          AHREFS:  ${{ steps.scan.outputs.ahrefs }}
+          CF:      ${{ steps.scan.outputs.cf }}
+          SENTRY:  ${{ steps.scan.outputs.sentry }}
+          TARGET:  ${{ steps.fetch.outputs.url }}
+        run: |
+          set -euo pipefail
+          STATUS="OK"
+          for v in "$GA4" "$META" "$AHREFS" "$CF" "$SENTRY"; do
+            [ "$v" = "ok" ] || STATUS="ACTION NEEDED ❗"
+          done
+          cat > slack-temp.json <<JSON
+          {
+            "text": "Audit Trackers — ${STATUS}",
+            "blocks": [
+              { "type": "section", "text": { "type": "mrkdwn",
+                "text": "*Audit Trackers* — *${STATUS}*\\n*Target:* ${TARGET}\\n• *GA4:* ${GA4}  • *Meta:* ${META}  • *Ahrefs:* ${AHREFS}  • *CF:* ${CF}  • *Sentry:* ${SENTRY}\\n<${URL_RUN}|Voir le run> • <${URL_ART}|Télécharger les artefacts>" } }
+            ]
+          }
+          JSON
+          curl -s -X POST -H 'Content-type: application/json' --data @slack-temp.json "$SLACK_WEBHOOK_URL" >/dev/null || true
+
       - name: ❗️Échec si manquants
         run: |
           set -euo pipefail
-          # échoue la CI si au moins un "Missing"
           if grep -q "Missing" out/report.html; then
             echo "Au moins un tracker est manquant."
             exit 2
