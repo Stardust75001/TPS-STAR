@@ -1,5 +1,3 @@
-mkdir -p .github/workflows
-cat > .github/workflows/seo-checks.yml <<'YAML'
 name: "🔎 SEO Checks (Ahrefs v3)"
 
 on:
@@ -9,7 +7,7 @@ on:
 
 env:
   TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}               # ex: https://thepetsociety.paris
-  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}       # Clé Ahrefs v3 (Enterprise)
+  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}       # Token Ahrefs v3 (Enterprise)
   SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # optionnel
 
 jobs:
@@ -17,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # jq est utilisé pour parser la réponse JSON
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Fetch Ahrefs v3 metrics
         id: ahrefs
@@ -26,7 +28,7 @@ jobs:
           mkdir -p out
 
           [[ -n "${AHREFS_API_KEY:-}" ]] || { echo "❌ AHREFS_API_KEY manquant"; exit 1; }
-          [[ -n "${TPS_DOMAIN:-}"     ]] || { echo "❌ TPS_DOMAIN manquant"; exit 1; }
+          [[ -n "${TPS_DOMAIN:-}" ]] || { echo "❌ TPS_DOMAIN manquant"; exit 1; }
 
           TARGET="${TPS_DOMAIN#http://}"; TARGET="${TARGET#https://}"; TARGET="${TARGET%%/*}"
           echo "🎯 Target: $TARGET"
@@ -36,13 +38,13 @@ jobs:
             "https://api.ahrefs.com/v3/site-explorer/metrics?target=${TARGET}&mode=domain")
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
+          # Essaye d'extraire les champs si présents
           DR=$(jq -r '..|objects|to_entries[]?|select(.key=="domain_rating")|.value' out/ahrefs_metrics.json | head -n1 || true)
           BL=$(jq -r '..|objects|to_entries[]?|select(.key=="backlinks")|.value'      out/ahrefs_metrics.json | head -n1 || true)
           RD=$(jq -r '..|objects|to_entries[]?|select(.key=="ref_domains")|.value'    out/ahrefs_metrics.json | head -n1 || true)
           DR=${DR:-n/a}; BL=${BL:-n/a}; RD=${RD:-n/a}
 
-          echo "domain,rating,backlinks,ref_domains" > out/ahrefs_metrics.csv
-          echo "${TARGET},${DR},${BL},${RD}"        >> out/ahrefs_metrics.csv
+          printf "domain,rating,backlinks,ref_domains\n%s,%s,%s,%s\n" "$TARGET" "$DR" "$BL" "$RD" > out/ahrefs_metrics.csv
 
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
           echo "dr=${DR}"         >> "$GITHUB_OUTPUT"
@@ -58,24 +60,23 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: "💬 Slack (résumé)"
+      - name: 💬 Slack (résumé)
         if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
         env:
           URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TARGET:  ${{ steps.ahrefs.outputs.target }}
-          DR:      ${{ steps.ahrefs.outputs.dr }}
-          BL:      ${{ steps.ahrefs.outputs.bl }}
-          RD:      ${{ steps.ahrefs.outputs.rd }}
-          CODE:    ${{ steps.ahrefs.outputs.http_code }}
+          TARGET: ${{ steps.ahrefs.outputs.target }}
+          DR:     ${{ steps.ahrefs.outputs.dr }}
+          BL:     ${{ steps.ahrefs.outputs.bl }}
+          RD:     ${{ steps.ahrefs.outputs.rd }}
+          CODE:   ${{ steps.ahrefs.outputs.http_code }}
         run: |
-          STATUS="OK"; [[ "${CODE:-200}" != "200" ]] && STATUS="WARN ($CODE)"
+          STATUS="OK"; [[ "${CODE:-200}" != "200" ]] && STATUS="WARN (${CODE})"
           cat > slack-temp.json <<JSON
           { "text": "*SEO Checks (Ahrefs v3)* — ${STATUS}",
             "blocks": [
               { "type": "section", "text": { "type": "mrkdwn",
-                "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\\n• *Target:* ${TARGET}\\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\\n<${URL_RUN}|Voir le run & télécharger l’artefact>" } }
+                "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\n• *Target:* ${TARGET}\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\n<${URL_RUN}|Voir le run & télécharger l’artefact>" } }
             ] }
           JSON
           curl -s -X POST -H 'Content-type: application/json' \
             --data @slack-temp.json "$SLACK_WEBHOOK_URL" >/dev/null || true
-YAML
