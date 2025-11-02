@@ -1,0 +1,317 @@
+name: "🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)"
+
+on:
+  schedule:
+    - cron: "30 4 * * *"   # 04:30 UTC quotidien
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Chemin à tester (ex: /, /collections/all, /products/foo)"
+        default: "/"
+        required: true
+
+env:
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}                 # ex: https://thepetsociety.paris
+  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}       # ex: G-XXXXXXX (facultatif, sinon pattern)
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }} # ex: 1234567890
+  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}   # meta ahrefs-site-verification
+  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}   # token Cloudflare Beacon
+  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}       # DSN complet (facultatif, sinon pattern)
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔎 Télécharge la page cible
+        id: fetch
+        env:
+          PATH_TO_TEST: ${{ github.event.inputs.path || '/' }}
+        run: |
+          set -euo pipefail
+          [[ -n "${DOMAIN:-}" ]] || { echo "❌ secrets.TPS_DOMAIN manquant"; exit 1; }
+          URL="${DOMAIN%/}${PATH_TO_TEST}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+          mkdir -p out
+          code=$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")
+          echo "http=${code}" >> "$GITHUB_OUTPUT"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then
+            echo "❌ Page non accessible ($code)"
+            exit 1
+          fi
+
+          curl -sL -A "TPS-Bot/1.0 (+audit-trackers)" "$URL" > out/fetched.html
+          echo "📥 Page enregistrée: out/fetched.html"
+
+      - name: 🧪 Scan des trackers
+        id: scan
+        run: |
+          set -euo pipefail
+          page="out/fetched.html"
+
+          # Helpers
+          ok(){ echo "ok"; }
+          ko(){ echo "missing"; }
+
+          # --- GA4 ---
+          if [ -n "${EXPECT_GA4_ID:-}" ]; then
+            grep -q "${EXPECT_GA4_ID}" "$page" && GA4_STATUS=$(ok) || GA4_STATUS=$(ko)
+          else
+            grep -Eq 'gtag/js\?id=G-|G-[A-Z0-9]+' "$page" && GA4_STATUS=$(ok) || GA4_STATUS=$(ko)
+          fi
+
+          # --- Meta Pixel ---
+          if [ -n "${EXPECT_META_PIXEL_ID:-}" ]; then
+            grep -q "${EXPECT_META_PIXEL_ID}" "$page" && META_STATUS=$(ok) || META_STATUS=$(ko)
+          else
+            grep -q "fbq(" "$page" && META_STATUS=$(ok) || META_STATUS=$(ko)
+          fi
+
+          # --- Ahrefs verification ---
+          if [ -n "${EXPECT_AHREFS_VERIF:-}" ]; then
+            if grep -qi "<meta[^>]*name=['\"]ahrefs-site-verification['\"][^>]*content=['\"]${EXPECT_AHREFS_VERIF}['\"]" "$page"; then
+              AHREFS_STATUS=$(ok)
+            else
+              AHREFS_STATUS=$(ko)
+            fi
+          else
+            grep -qi "ahrefs-site-verification" "$page" && AHREFS_STATUS=$(ok) || AHREFS_STATUS=$(ko)
+          fi
+
+          # --- Cloudflare Beacon ---
+          if [ -n "${EXPECT_CF_TOKEN:-}" ]; then
+            if grep -q "cloudflareinsights.com/beacon.min.js" "$page" && grep -q "${EXPECT_CF_TOKEN}" "$page"; then
+              CF_STATUS=$(ok)
+            else
+              CF_STATUS=$(ko)
+            fi
+          else
+            grep -q "cloudflareinsights.com/beacon.min.js" "$page" && CF_STATUS=$(ok) || CF_STATUS=$(ko)
+          fi
+
+          # --- Sentry ---
+          if [ -n "${EXPECT_SENTRY_DSN:-}" ]; then
+            grep -q "${EXPECT_SENTRY_DSN}" "$page" && SENTRY_STATUS=$(ok) || SENTRY_STATUS=$(ko)
+          else
+            grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && SENTRY_STATUS=$(ok) || SENTRY_STATUS=$(ko)
+          fi
+
+          # Expose outputs
+          echo "ga4=${GA4_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "meta=${META_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "ahrefs=${AHREFS_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "cf=${CF_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "sentry=${SENTRY_STATUS}" >> "$GITHUB_OUTPUT"
+
+          # JSON brut des résultats
+          cat > out/audit.json <<JSON
+          {
+            "ga4": "${GA4_STATUS}",
+            "meta_pixel": "${META_STATUS}",
+            "ahrefs_verification": "${AHREFS_STATUS}",
+            "cloudflare_beacon": "${CF_STATUS}",
+            "sentry": "${SENTRY_STATUS}"
+          }
+          JSON
+
+      - name: 🧾 Génère le rapport HTML (résumé + analyse + actions)
+        id: report
+        env:
+          URL: ${{ steps.fetch.outputs.url }}
+          GA4: ${{ steps.scan.outputs.ga4 }}
+          META: ${{ steps.scan.outputs.meta }}
+          AHREFS: ${{ steps.scan.outputs.ahrefs }}
+          CF: ${{ steps.scan.outputs.cf }}
+          SENTRY: ${{ steps.scan.outputs.sentry }}
+        run: |
+          set -euo pipefail
+
+          badge(){
+            case "$1" in
+              ok) echo '<span class="badge ok">OK</span>' ;;
+              missing) echo '<span class="badge ko">Missing</span>' ;;
+              *) echo '<span class="badge ko">Unknown</span>' ;;
+            esac
+          }
+
+          OVERALL="OK"
+          for v in "$GA4" "$META" "$AHREFS" "$CF" "$SENTRY"; do
+            if [ "$v" != "ok" ]; then OVERALL="ACTION NEEDED"; break; fi
+          done
+
+          cat > out/report.html <<'CSSHTML'
+          <!doctype html>
+          <html lang="fr">
+          <head>
+            <meta charset="utf-8">
+            <title>Audit Trackers — Rapport</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              :root {
+                --bg: #0f1220; --card:#14182b; --soft:#1b2140; --txt:#e7ecff;
+                --ok:#2ecc71; --ko:#ff5c5c; --warn:#f1c40f; --muted:#9aa3c7;
+              }
+              * { box-sizing: border-box; }
+              body { margin:0; padding:32px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; color:var(--txt); background:linear-gradient(180deg,#0b0f1a 0%, #0f1220 100%); }
+              .wrap { max-width:1000px; margin:0 auto; }
+              .title { display:flex; align-items:center; gap:12px; margin:0 0 16px; }
+              .subtitle { color:var(--muted); margin:0 0 24px; }
+              .pill { padding:6px 10px; border-radius:999px; background:var(--soft); color:var(--muted); font-size:12px; letter-spacing:.3px; }
+              .status { padding:6px 12px; border-radius:8px; font-weight:700; display:inline-block; }
+              .status.ok { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.35); }
+              .status.warn { background:rgba(241,196,15,.12); color:var(--warn); border:1px solid rgba(241,196,15,.35); }
+              .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); margin:24px 0; }
+              .card { background:linear-gradient(180deg, #151a31, #12162a); border:1px solid #252b47; border-radius:14px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+              .card h3 { margin:0 0 10px; font-size:16px; }
+              .line { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px dashed #2a3258; }
+              .line:first-child { border-top:0; }
+              .badge { padding:4px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+              .badge.ok { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.3); }
+              .badge.ko { background:rgba(255,92,92,.15); color:var(--ko); border:1px solid rgba(255,92,92,.3); }
+              .muted { color:var(--muted); font-size:13px; }
+              .actions ul { margin:8px 0 0; padding-left:18px; }
+              .footer { margin-top:28px; color:var(--muted); font-size:12px; }
+              a { color:#7aa2ff; text-decoration:none; }
+              .hero { display:flex; gap:12px; align-items:center; justify-content:space-between; background:linear-gradient(135deg, #151a31 0%, #0e1330 100%); border:1px solid #262e55; border-radius:16px; padding:16px; }
+              .hero .left { display:flex; gap:12px; align-items:center; }
+              .chip { background:#0c1030; border:1px solid #1c2450; padding:6px 10px; border-radius:10px; font-size:12px; color:var(--muted); }
+              .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0c1130; border:1px solid #1d2553; padding:2px 6px; border-radius:6px; }
+            </style>
+          </head>
+          <body>
+          <div class="wrap">
+            <div class="title"><span class="pill">Audit Trackers</span><h1 style="margin:0">Rapport de vérification</h1></div>
+            <p class="subtitle">Vérification automatique des intégrations analytics & marketing (GA4, Meta, Ahrefs, Cloudflare, Sentry).</p>
+            <div class="hero">
+              <div class="left">
+                <div class="chip">Cible: <span id="t-url" class="kbd"></span></div>
+                <div class="chip">Généré: <span id="t-date" class="kbd"></span></div>
+              </div>
+              <div id="overall" class="status">—</div>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <h3>Résumé</h3>
+                <div class="line"><div>Google Analytics 4</div><div id="s-ga4"></div></div>
+                <div class="line"><div>Meta Pixel</div><div id="s-meta"></div></div>
+                <div class="line"><div>Ahrefs Verification</div><div id="s-ahrefs"></div></div>
+                <div class="line"><div>Cloudflare Beacon</div><div id="s-cf"></div></div>
+                <div class="line"><div>Sentry</div><div id="s-sentry"></div></div>
+              </div>
+
+              <div class="card">
+                <h3>Analyse</h3>
+                <p id="analysis" class="muted">Calcul de la cohérence & couverture…</p>
+              </div>
+
+              <div class="card actions">
+                <h3>Actions recommandées</h3>
+                <ul id="actions" class="muted">
+                  <li>Renseigner les secrets manquants côté repo (<span class="kbd">Settings → Secrets</span>).</li>
+                  <li>Vérifier la présence des scripts (head/body) dans le thème Shopify.</li>
+                  <li>Nettoyer les doublons ou anciens snippets si besoin.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>Détails bruts (JSON)</h3>
+              <pre id="json" class="muted" style="white-space:pre-wrap;background:#0e1330;border:1px solid #1b2249;padding:12px;border-radius:8px;"></pre>
+            </div>
+
+            <p class="footer">Astuce : vous pouvez lancer ce workflow manuellement avec un chemin spécifique depuis l’onglet <em>Actions</em>.</p>
+          </div>
+
+          <script>
+          (function(){
+            const data = __DATA__;
+            const el = (id)=>document.getElementById(id);
+            const badge = (s)=> s==="ok" ? '<span class="badge ok">OK</span>' : '<span class="badge ko">Missing</span>';
+
+            el('t-url').textContent = data.url;
+            el('t-date').textContent = new Date().toISOString().replace('T',' ').replace('Z',' UTC');
+
+            el('s-ga4').innerHTML    = badge(data.ga4);
+            el('s-meta').innerHTML   = badge(data.meta_pixel);
+            el('s-ahrefs').innerHTML = badge(data.ahrefs_verification);
+            el('s-cf').innerHTML     = badge(data.cloudflare_beacon);
+            el('s-sentry').innerHTML = badge(data.sentry);
+
+            const all = [data.ga4, data.meta_pixel, data.ahrefs_verification, data.cloudflare_beacon, data.sentry];
+            const ok = all.every(s => s==="ok");
+            const ov = document.getElementById('overall');
+            ov.textContent = ok ? "OK" : "ACTION NEEDED";
+            ov.className = "status " + (ok ? "ok" : "warn");
+
+            // Analyse & actions ciblées
+            const actions = [];
+            if (data.ga4 !== "ok") actions.push("GA4 : vérifier l’ID (EXPECT_GA4_ID) et l’initialisation gtag.");
+            if (data.meta_pixel !== "ok") actions.push("Meta Pixel : vérifier l’ID (EXPECT_META_PIXEL_ID) et fbq('init').");
+            if (data.ahrefs_verification !== "ok") actions.push("Ahrefs : ajouter la meta 'ahrefs-site-verification' avec la bonne valeur.");
+            if (data.cloudflare_beacon !== "ok") actions.push("Cloudflare : activer le Beacon et/ou vérifier le token.");
+            if (data.sentry !== "ok") actions.push("Sentry : charger le SDK et initialiser avec le DSN.");
+            if (actions.length) {
+              const ul = document.getElementById('actions');
+              actions.forEach(a => { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); });
+            }
+            el('analysis').textContent = ok
+              ? "Tous les signaux requis sont présents. Couverture conforme."
+              : "Un ou plusieurs signaux sont manquants. Voir les actions recommandées ci-contre.";
+
+            el('json').textContent = JSON.stringify(data, null, 2);
+          })();
+          </script>
+          </body>
+          </html>
+          CSSHTML
+
+          # Injecte les données collectées dans le template
+          jq_available=0
+          command -v jq >/dev/null && jq_available=1
+
+          # Construit le JSON pour le script
+          if [ $jq_available -eq 1 ]; then
+            payload=$(jq -nc \
+              --arg url "${URL}" \
+              --arg ga4 "${GA4}" \
+              --arg meta "${META}" \
+              --arg ahrefs "${AHREFS}" \
+              --arg cf "${CF}" \
+              --arg sentry "${SENTRY}" \
+              '{url:$url, ga4:$ga4, meta_pixel:$meta, ahrefs_verification:$ahrefs, cloudflare_beacon:$cf, sentry:$sentry}')
+          else
+            payload=$(cat <<JSON
+          {"url":"${URL}","ga4":"${GA4}","meta_pixel":"${META}","ahrefs_verification":"${AHREFS}","cloudflare_beacon":"${CF}","sentry":"${SENTRY}"}
+          JSON
+          )
+          fi
+
+          # Remplace le placeholder __DATA__
+          sed -i.bak "s|__DATA__|${payload//|/\\|}|g" out/report.html
+          rm -f out/report.html.bak
+
+      - name: 📦 Upload artefacts (rapport + JSON + page brute)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-trackers-report
+          path: |
+            out/report.html
+            out/audit.json
+            out/fetched.html
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: ❗️Échec si manquants
+        run: |
+          set -euo pipefail
+          # échoue la CI si au moins un "Missing"
+          if grep -q "Missing" out/report.html; then
+            echo "Au moins un tracker est manquant."
+            exit 2
+          fi

@@ -13,6 +13,7 @@
   {% endif %}
 >
   <head>
+    {%- render 'integrations' -%}
     {% comment %} Google Analytics 4 {% endcomment %}
     {% if settings.google_analytics_4_measurement_id != blank %}
       <!-- Google tag (gtag.js) -->
