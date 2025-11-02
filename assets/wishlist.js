@@ -59,6 +59,33 @@ window.removeOrAddFromWishlist = async btn => {
 
   localStorage.setItem(localStorageKey, JSON.stringify(wishlist));
 
+  // 🎯 TPS-STAR: Track Wishlist events
+  if (window.TPS && window.TPS.trackEvent) {
+    try {
+      const eventName = isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist';
+      const productData = isWishlisted ? 
+        { product_handle: btn.dataset.productHandle } :
+        {
+          product_id: product.id,
+          product_handle: product.handle,
+          product_title: product.title,
+          price: product.price ? (product.price / 100) : null,
+          compare_at_price: product.compare_at_price ? (product.compare_at_price / 100) : null,
+          vendor: product.vendor,
+          type: product.type,
+          url: product.url
+        };
+
+      window.TPS.trackEvent(eventName, {
+        ...productData,
+        wishlist_count: wishlist.length,
+        page_url: window.location.href
+      });
+    } catch (error) {
+      console.warn('[TPS-STAR] Wishlist tracking failed:', error);
+    }
+  }
+
   initializeWishlist();
 };
 
