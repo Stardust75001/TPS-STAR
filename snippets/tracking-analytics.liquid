@@ -14,13 +14,13 @@ Ce snippet gère :
 {%- liquid
   assign integ = shop.metafields.custom_integrations
 
-  comment 'Map metafields to expected names (handle case variations)'
+  # Map metafields to expected names (handle case variations)
   assign ga4_token = integ.GA4_Token | default: integ.ga4_token | strip
   assign meta_pixel_id = integ.Meta_Pixel_ID | default: integ.meta_pixel_id | strip
   assign sentry_dsn = integ.Sentry_DSN | default: integ.sentry_dsn | strip
   assign cloudflare_token = integ.Cloudflare_Token | default: integ.cloudflare_beacon_token | strip
 
-  comment 'Optional free analytics platforms'
+  # Optional free analytics platforms
   assign clarity_id = integ.Clarity_ID | default: integ.clarity_id | strip
   assign hotjar_id = integ.Hotjar_ID | default: integ.hotjar_id | strip
   assign amplitude_key = integ.Amplitude_Key | default: integ.amplitude_key | strip
