@@ -129,7 +129,7 @@
   // ---------- Init once DOM is ready
   const init = once(function () {
     autoHooks();
-    
+
     // ============= Microsoft Clarity (si ID présent) =============
     if (CFG.clarity_id) {
       (function(c,l,a,r,i,t,y){
@@ -139,7 +139,7 @@
       })(window, document, "clarity", "script", CFG.clarity_id);
       console.log("🪟 Clarity loaded:", CFG.clarity_id);
     }
-    
+
     tryFlush();
   });
 
