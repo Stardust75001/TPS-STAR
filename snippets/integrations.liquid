@@ -209,18 +209,18 @@
       });
     }
 
-    // === HOTJAR (Heatmaps & User Recordings) ===
+    // === HOTJAR (Heatmaps & User Recordings) - Updated with contentsquare.net URL ===
     if (cfg.hotjar_id) {
       (function (c, s, q, u, a, r, e) {
         c.hj=c.hj||function(){(c.hj.q=c.hj.q||[]).push(arguments)};
-        c._hjSettings = { hjid: parseInt(a, 10), hjsv: 6 };
+        c._hjSettings = { hjid: a };
         r = s.getElementsByTagName('head')[0];
         e = s.createElement('script');
         e.async = true;
         e.src = q + c._hjSettings.hjid + u;
         r.appendChild(e);
-      })(window, document, 'https://static.hotjar.com/c/hotjar-', '.js?sv=', cfg.hotjar_id);
-      console.log('🔥 Hotjar loaded:', cfg.hotjar_id);
+      })(window, document, 'https://static.hj.contentsquare.net/c/csq-', '.js', cfg.hotjar_id);
+      console.log('🔥 Hotjar loaded (contentsquare):', cfg.hotjar_id);
     }
 
     // === MICROSOFT CLARITY ===
