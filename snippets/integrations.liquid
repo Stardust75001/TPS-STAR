@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# TPS-STAR Post-Deploy Diagnostic
+# Vérifie que les corrections sont bien appliquées
+
+echo "🩺 TPS-STAR POST-DEPLOY DIAGNOSTIC"
+echo "==================================="
+echo ""
+
+echo "✅ CORRECTIONS APPLIQUÉES :"
+echo ""
+
+# 1. Vérifier que TPS.debug est défini immédiatement
+if grep -q "window.TPS.debug.*enable" snippets/integrations.liquid; then
+    echo "1. ✅ TPS.debug.enable() défini immédiatement (plus de ReferenceError)"
+else
+    echo "1. ❌ TPS.debug.enable() manquant"
+fi
+
+# 2. Vérifier les clés metafields robustes
+if grep -q "integ.ga4_token.*default.*integ.GA4_Token" snippets/integrations.liquid; then
+    echo "2. ✅ Metafields robustes (lowercase + CamelCase fallback)"
+else
+    echo "2. ❌ Metafields robustes manquants"
+fi
+
+# 3. Vérifier Sentry sans SRI
+if grep -q "Sentry.init" snippets/integrations.liquid && ! grep -q "integrity.*sha" snippets/integrations.liquid; then
+    echo "3. ✅ Sentry sans SRI (plus d'erreur integrity)"
+else
+    echo "3. ❌ Sentry SRI encore présent"
+fi
+
+# 4. Vérifier les logs de chargement
+if grep -q "🪟 Clarity loaded:" snippets/integrations.liquid && grep -q "🔥 Hotjar loaded:" snippets/integrations.liquid; then
+    echo "4. ✅ Logs de chargement Clarity & Hotjar"
+else
+    echo "4. ❌ Logs de chargement manquants"
+fi
+
+# 5. Vérifier le debug Meta Pixel
+if grep -q "console.log.*meta id.*typeof" snippets/integrations.liquid; then
+    echo "5. ✅ Debug Meta Pixel (diagnostic Invalid PixelID)"
+else
+    echo "5. ❌ Debug Meta Pixel manquant"
+fi
+
+echo ""
+echo "🧪 TESTS À EFFECTUER DANS LE NAVIGATEUR :"
+echo ""
+echo "1. Ouvrez test-tps-debug.html dans votre navigateur"
+echo "2. Console (F12) → Tapez : TPS.debug.enable()"
+echo "3. Vous devriez voir :"
+echo "   - 🔍 TPS-STAR Debug Info"
+echo "   - 📊 Config loaded: {ga4: ..., meta_pixel_id: ...}"
+echo "   - 🎯 Active platforms: [\"ga4\", \"meta_pixel_id\", ...]"
+echo ""
+echo "4. Sur votre site Shopify (après déploiement) :"
+echo "   - Console → TPS.debug.enable()"
+echo "   - Vérifiez ces logs :"
+echo "     ✅ '[TPS-STAR] System initialized'"
+echo "     ✅ '🪟 Clarity loaded: tzvd9w6rjs'"
+echo "     ✅ '🔥 Hotjar loaded: 6564192'"
+echo "     ✅ '[TPS] meta id: 1973238620087976 string'"
+echo "     ✅ '[TPS-STAR] Meta Pixel initialized: 1973...'"
+echo ""
+echo "❌ ERREURS QUI DOIVENT DISPARAÎTRE :"
+echo "   - 'ReferenceError: Can't find variable: TPS'"
+echo "   - 'Invalid PixelID: null'"
+echo "   - 'integrity metadata check'"
+echo "   - 'ReferenceError: Sentry is not defined'"
+echo ""
+echo "🔧 CONFIGURATION METAFIELDS REQUISE :"
+echo "   Shopify Admin → Settings → Metafields → Shop"
+echo "   Namespace: custom_integrations | Type: Single line text"
+echo "   + Activer 'Storefront API access' pour chaque champ !"
+echo ""
+echo "   ga4_token → G-E4NPI2ZZM3"
+echo "   meta_pixel_id → 1973238620087976"
+echo "   sentry_dsn → votre-dsn-complet"
+echo "   clarity_id → tzvd9w6rjs"
+echo "   hotjar_id → 6564192"
+echo "   cloudflare_beacon_token → 21fd2470..."
+echo ""
+echo "🚀 Si tous les tests passent, votre TPS-STAR est prêt !"
