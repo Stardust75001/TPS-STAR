@@ -616,3 +616,22 @@
   ]
 }
 {% endschema %}
+
+{%- comment -%} TPS Auto-tracking for Product Recommendations {%- endcomment -%}
+<script>
+document.addEventListener('click', function(e){
+  const a = e.target.closest('[data-rec-product-id]');
+  if(!a || !window.TPS || !TPS.trackEvent) return;
+
+  TPS.trackEvent('Product Recommendation Click', {
+    product_id: a.getAttribute('data-rec-product-id'),
+    position: +a.getAttribute('data-rec-position') || undefined,
+    recommended_from: a.getAttribute('data-rec-source') || 'recommendations',
+    product_name: a.querySelector('.fw-medium, .product-title, h3, h4, h5, h6')?.textContent?.trim(),
+    section_id: '{{ section.id }}',
+    recommendation_type: '{{ section.settings.intent | default: "related" }}',
+    source_product_id: '{{ product.id }}',
+    source_product_name: {{ product.title | json }}
+  });
+}, {passive:true});
+</script>

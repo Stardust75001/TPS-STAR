@@ -6,8 +6,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}               # ex: https://thepetsociety.paris
-  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}       # Token Ahrefs v3
+  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}              # ex: https://thepetsociety.paris
+  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}      # Token Ahrefs v3 (compte Enterprise)
   SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # optionnel
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
 
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
-          # Extraction tolérante des métriques (si présentes)
+          # Tente d'extraire les métriques clés si présentes
           DR=$(jq -r '..|objects|to_entries[]?|select(.key=="domain_rating")|.value' out/ahrefs_metrics.json | head -n1 || true)
           BL=$(jq -r '..|objects|to_entries[]?|select(.key=="backlinks")|.value'      out/ahrefs_metrics.json | head -n1 || true)
           RD=$(jq -r '..|objects|to_entries[]?|select(.key=="ref_domains")|.value'    out/ahrefs_metrics.json | head -n1 || true)
@@ -94,7 +94,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\\n• *Target:* ${TARGET}\\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\\n<${URL_RUN}|Voir le run & télécharger l’artefact>"
+                  "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\n• *Target:* ${TARGET}\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\n<${URL_RUN}|Voir le run & télécharger l’artefact>"
                 }
               }
             ]
