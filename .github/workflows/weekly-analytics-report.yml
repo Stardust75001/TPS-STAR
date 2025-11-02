@@ -1,0 +1,78 @@
+name: "📊 Weekly Analytics Report - TPS-STAR Business Intelligence"
+
+on:
+  schedule:
+    - cron: "0 8 * * MON"  # Every Monday at 8:00 AM UTC
+  workflow_dispatch:
+    inputs:
+      week_offset:
+        description: "Weeks back to analyze (0 = last week, 1 = 2 weeks ago)"
+        default: "0"
+        required: false
+
+env:
+  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
+  GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+  GA4_SERVICE_ACCOUNT: ${{ secrets.GA4_SERVICE_ACCOUNT }}
+  AMPLITUDE_API_KEY: ${{ secrets.AMPLITUDE_API_KEY }}
+  AMPLITUDE_SECRET_KEY: ${{ secrets.AMPLITUDE_SECRET_KEY }}
+  HOTJAR_API_KEY: ${{ secrets.HOTJAR_API_KEY }}
+  CLARITY_API_KEY: ${{ secrets.CLARITY_API_KEY }}
+  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+  SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+  SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  SHOPIFY_STORE_URL: ${{ secrets.SHOPIFY_STORE_URL }}
+  SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas numpy matplotlib seaborn plotly kaleido
+          pip install google-analytics-data google-auth requests
+          pip install jinja2 datetime pytz beautifulsoup4
+
+      - name: 📊 Generate Weekly Report
+        run: python scripts/generate_weekly_report.py
+        env:
+          WEEK_OFFSET: ${{ github.event.inputs.week_offset || '0' }}
+
+      - name: 📤 Upload Report Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-analytics-report-${{ github.run_number }}
+          path: |
+            reports/weekly-report-*.html
+            reports/charts/*.png
+            reports/data/*.json
+          retention-days: 30
+
+      - name: 💬 Send Slack Notification
+        if: env.SLACK_WEBHOOK_URL
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"📊 Weekly TPS-STAR Analytics Report Generated!\n🔗 View: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n📅 Period: Last 7 days\n📈 Includes: Traffic, Conversions, User Behavior & Recommendations"}' \
+          ${{ env.SLACK_WEBHOOK_URL }}
+
+      - name: 📧 Email Report (Optional)
+        if: env.EMAIL_RECIPIENT
+        run: python scripts/send_email_report.py
+        env:
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

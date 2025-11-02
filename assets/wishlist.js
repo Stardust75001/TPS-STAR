@@ -59,6 +59,33 @@ window.removeOrAddFromWishlist = async btn => {
 
   localStorage.setItem(localStorageKey, JSON.stringify(wishlist));
 
+  // 🎯 TPS-STAR: Track Wishlist events
+  if (window.TPS && window.TPS.trackEvent) {
+    try {
+      const eventName = isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist';
+      const productData = isWishlisted ?
+        { product_handle: btn.dataset.productHandle } :
+        {
+          product_id: product.id,
+          product_handle: product.handle,
+          product_title: product.title,
+          price: product.price ? (product.price / 100) : null,
+          compare_at_price: product.compare_at_price ? (product.compare_at_price / 100) : null,
+          vendor: product.vendor,
+          type: product.type,
+          url: product.url
+        };
+
+      window.TPS.trackEvent(eventName, {
+        ...productData,
+        wishlist_count: wishlist.length,
+        page_url: window.location.href
+      });
+    } catch (error) {
+      console.warn('[TPS-STAR] Wishlist tracking failed:', error);
+    }
+  }
+
   initializeWishlist();
 };
 
@@ -100,7 +127,7 @@ const initializeWishlist = () => {
 
       product.variants.forEach(variant => {
         variantOptions += `
-                    <option 
+                    <option
                         value="${variant.id}"
                         data-compare-at-price="${variant.compare_at_price || ''}"
                         data-price="${variant.price}"
@@ -123,16 +150,16 @@ const initializeWishlist = () => {
                     <div class="row align-items-center mx-n3">
                         <div class="col-4 px-3">
                             <a class="" href="${product.url}" tabindex="-1">
-                                <img 
+                                <img
                                     class="product-item-img img-fluid rounded ${
                                       productList.dataset.imgThumbnail
-                                    }" 
+                                    }"
                                     src="${Shopify.resizeImage(
                                       product.featured_image || 'no-image.gif',
                                       `${productList.dataset.imgWidth}x${productList.dataset.imgHeight}`,
                                       'center'
                                     )}"
-                                    alt="" 
+                                    alt=""
                                     width="${productList.dataset.imgWidth}"
                                     height="${productList.dataset.imgHeight}"
                                     loading="lazy">
@@ -183,9 +210,9 @@ const initializeWishlist = () => {
                                     <input type="hidden" name="form_type" value="product">
                                     <input type="hidden" name="utf8" value="✓">
                                         <div class="d-flex">
-                                            <select 
-                                                class="form-select form-select-sm w-100 me-3" 
-                                                name="id" 
+                                            <select
+                                                class="form-select form-select-sm w-100 me-3"
+                                                name="id"
                                                 aria-label="${
                                                   productList.dataset.textSelectVariant
                                                 }"
@@ -204,7 +231,7 @@ const initializeWishlist = () => {
                                     </div>
                                 </form>
                             </div>
-                            <button 
+                            <button
                                 class="btn-remove btn btn-sm"
                                 data-product-handle="${product.handle}"
                                 onclick="handleWishlistItemRemoval(this)"
