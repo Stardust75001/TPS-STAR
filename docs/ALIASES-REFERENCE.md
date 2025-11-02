@@ -1,5 +1,5 @@
 # 🧠 TPS — Aliases ZSH (Référence)
-_Généré automatiquement le 2025-11-02 02:09:27_
+_Généré automatiquement le 2025-11-02 02:13:29_
 
 ## 🔗 Fichier source
 `~/.aliases`
@@ -59,6 +59,15 @@ alias THEMEDEPLOY='bash ~/Shopify/backup-top.sh && THEMEPUSH'
 ```
 ```bash
 alias mk='make -C ~/Shopify/TPS-STAR-WORKTREE'
+```
+```bash
+alias SYNCDEV='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-dev.sh'
+```
+```bash
+alias SYNCDEV='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-dev.sh'
+```
+```bash
+alias SYNCMAIN='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-main.sh'
 ```
 
 ## ⚙️ Fonctions (signatures)
