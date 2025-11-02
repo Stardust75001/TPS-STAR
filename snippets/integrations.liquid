@@ -1,0 +1,159 @@
+{%- comment -%}
+  THE PET SOCIETY — Integrations bootstrap
+  Centralise les métachamps custom_integrations.* :
+    - ga4_token
+    - meta_pixel_id
+    - sentry_dsn
+    - cloudflare_beacon_token
+{%- endcomment -%}
+{%- liquid
+  assign integ = shop.metafields.custom_integrations
+  assign GA4_ID     = integ.ga4_token | default: '' | strip
+  assign META_ID    = integ.meta_pixel_id | default: '' | strip
+  assign SENTRY_DSN = integ.sentry_dsn | default: '' | strip
+  assign CF_TOKEN   = integ.cloudflare_beacon_token | default: '' | strip
+-%}
+
+<script id="tps-integrations" type="application/json">
+  {{
+    {
+      ga4: GA4_ID,
+      meta_pixel_id: META_ID,
+      sentry_dsn: SENTRY_DSN,
+      cloudflare_beacon_token: CF_TOKEN
+    } | json
+  }}
+</script>
+
+<script>
+  (function () {
+    var cfgEl = document.getElementById('tps-integrations');
+    var cfg = {};
+    try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+
+    window.TPS = window.TPS || {};
+    window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
+
+    function loadScript(src, id, attrs) {
+      return new Promise(function(resolve, reject){
+        if (id && document.getElementById(id)) return resolve();
+        var s = document.createElement('script');
+        s.src = src; s.async = true; if (id) s.id = id;
+        if (attrs) Object.keys(attrs).forEach(k => s.setAttribute(k, attrs[k]));
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    // === SENTRY ===
+    if (cfg.sentry_dsn) {
+      loadScript('https://browser.sentry-cdn.com/7.120.1/bundle.tracing.replay.min.js', 'sentry-sdk')
+      .then(() => {
+        Sentry.init({
+          dsn: cfg.sentry_dsn,
+          integrations: [
+            Sentry.browserTracingIntegration(),
+            Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })
+          ],
+          tracesSampleRate: 1.0,
+          replaysSessionSampleRate: 0.1,
+          replaysOnErrorSampleRate: 1.0,
+          environment: "{{ request.locale.iso_code | upcase }}",
+          release: "{{ shop.permanent_domain }}@{{ 'now' | date: '%Y-%m-%d' }}"
+        });
+
+        // Add custom context and tags for TPS-STAR
+        Sentry.configureScope(function(scope) {
+          scope.setTag("store", "{{ shop.permanent_domain }}");
+          scope.setTag("theme", "tps-star");
+          scope.setTag("locale", "{{ request.locale.iso_code }}");
+          scope.setContext("page", {
+            type: "{{ request.page_type }}",
+            url: "{{ canonical_url }}",
+            title: "{{ page_title | escape }}"
+          });
+          scope.setContext("shop", {
+            name: "{{ shop.name | escape }}",
+            domain: "{{ shop.permanent_domain }}",
+            currency: "{{ shop.currency }}"
+          });
+        });
+
+        console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
+      });
+    }
+
+    // === GA4 ===
+    if (cfg.ga4) {
+      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4), 'ga4')
+      .then(() => {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){ dataLayer.push(arguments); }
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', cfg.ga4, { 'anonymize_ip': true });
+      });
+    }
+
+    // === META PIXEL ===
+    if (cfg.meta_pixel_id) {
+      (function(f,b,e,v,n,t,s){
+        if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
+        s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);
+      })(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+      try { fbq('init', cfg.meta_pixel_id); fbq('track', 'PageView'); }
+      catch(e) { console.warn('[TPS] Meta Pixel failed'); }
+    }
+
+    // === CLOUDFLARE BEACON ===
+    if (cfg.cloudflare_beacon_token) {
+      loadScript('https://static.cloudflareinsights.com/beacon.min.js', 'cf-beacon', {
+        'defer': '',
+        'data-cf-beacon': JSON.stringify({ token: cfg.cloudflare_beacon_token })
+      });
+    }
+
+    // === TPS-STAR ENHANCED TRACKING ===
+    window.TPS.pageReady = function() {
+      console.log('[TPS-STAR] Page tracking initialized');
+
+      // Enhanced GA4 tracking with page context
+      if (window.gtag) {
+        gtag('event', 'page_view', {
+          'page_type': '{{ request.page_type }}',
+          'store_name': '{{ shop.name | escape }}',
+          'locale': '{{ request.locale.iso_code }}',
+          'theme': 'tps-star'
+        });
+      }
+    };
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
+    } else {
+      window.TPS.pageReady();
+    }
+  })();
+</script>
+
+{% comment %} Debug mode for development {% endcomment %}
+{% if settings.active_debug_console %}
+  <script>
+    console.group('🔍 TPS-STAR Integrations Debug');
+    console.log('📊 Metafields Integration Status:');
+    console.log('  - GA4:', {{ shop.metafields.custom_integrations.ga4_token | default: 'Not set' | json }});
+    console.log('  - Meta Pixel:', {{ shop.metafields.custom_integrations.meta_pixel_id | default: 'Not set' | json }});
+    console.log('  - Sentry DSN:', {{ shop.metafields.custom_integrations.sentry_dsn | default: 'Not set' | json }});
+    console.log('  - Cloudflare:', {{ shop.metafields.custom_integrations.cloudflare_beacon_token | default: 'Not set' | json }});
+    console.log('🎯 Page Context:');
+    console.log('  - Type:', '{{ request.page_type }}');
+    console.log('  - Locale:', '{{ request.locale.iso_code }}');
+    console.log('  - URL:', '{{ canonical_url }}');
+    console.groupEnd();
+  </script>
+{% endif %}
