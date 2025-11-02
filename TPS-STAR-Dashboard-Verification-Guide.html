@@ -1,0 +1,455 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPS-STAR - Guide de Vérification des Dashboards</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+        
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .platform {
+            background: #f8f9fa;
+            border-left: 5px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .platform.clarity { border-left-color: #6f42c1; }
+        .platform.hotjar { border-left-color: #fd7e14; }
+        .platform.ga4 { border-left-color: #28a745; }
+        .platform.meta { border-left-color: #007bff; }
+        
+        .platform h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            font-size: 1.5em;
+        }
+        
+        .icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+        
+        .url {
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #495057;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        
+        .checklist {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .checklist h4 {
+            color: #155724;
+            margin-top: 0;
+            font-size: 1.1em;
+        }
+        
+        .checklist ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .checklist li {
+            color: #155724;
+            margin: 5px 0;
+        }
+        
+        .troubleshoot {
+            background: #fff3cd;
+            border: 1px solid #ffeaa1;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .troubleshoot h4 {
+            color: #856404;
+            margin-top: 0;
+        }
+        
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #495057;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .timing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .timing-table th,
+        .timing-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .timing-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .timing-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .alert {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0c5460;
+        }
+        
+        .alert h3 {
+            margin-top: 0;
+            color: #0a4e5c;
+        }
+        
+        .test-script {
+            background: #f1f3f4;
+            border: 2px solid #5f6368;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .test-script h3 {
+            margin-top: 0;
+            color: #1a73e8;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            color: #6c757d;
+        }
+        
+        @media print {
+            body { margin: 0; padding: 20px; }
+            .header { background: #667eea !important; }
+            .platform { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 TPS-STAR</h1>
+        <p>Guide de Vérification des Dashboards</p>
+        <p>Système de Tracking Universel</p>
+    </div>
+
+    <div class="alert">
+        <h3>📋 Instructions Préliminaires</h3>
+        <p><strong>Prérequis :</strong> Votre système TPS-STAR doit être déployé et <code>TPS.debug.enable()</code> doit fonctionner sans erreur.</p>
+        <p><strong>Timing :</strong> Attendez 2-10 minutes après navigation pour voir les données dans les dashboards.</p>
+        <p><strong>Navigation :</strong> Naviguez sur plusieurs pages de votre site pour générer suffisamment de données.</p>
+    </div>
+
+    <div class="platform clarity">
+        <h2><span class="icon">🪟</span>Microsoft Clarity</h2>
+        
+        <div class="url">
+            <strong>Dashboard :</strong> https://clarity.microsoft.com
+        </div>
+        
+        <div class="checklist">
+            <h4>✅ Ce que vous devriez voir :</h4>
+            <ul>
+                <li><strong>Dashboard principal</strong> → Nouvelles sessions apparaissent en temps réel</li>
+                <li><strong>Real-time</strong> → Activité en cours (sessions live avec votre localisation)</li>
+                <li><strong>Recordings</strong> → Enregistrements vidéo de vos actions de navigation</li>
+                <li><strong>Heatmaps</strong> → Cartes de chaleur des clics et scrolls qui se construisent</li>
+                <li><strong>Insights</strong> → Métriques d'engagement et comportement utilisateur</li>
+            </ul>
+        </div>
+        
+        <div class="troubleshoot">
+            <h4>🔧 Si rien n'apparaît :</h4>
+            <div class="code">
+// Dans la console, vérifiez :
+typeof clarity  // Devrait être "function"
+clarity('identify', 'test-user-' + Date.now())
+clarity('set', 'test_source', 'tps_star_verification')
+            </div>
+            <p><strong>ID Clarity configuré :</strong> tzvd9w6rjs</p>
+        </div>
+    </div>
+
+    <div class="platform hotjar">
+        <h2><span class="icon">🔥</span>Hotjar</h2>
+        
+        <div class="url">
+            <strong>Dashboard :</strong> https://insights.hotjar.com
+        </div>
+        
+        <div class="checklist">
+            <h4>✅ Ce que vous devriez voir :</h4>
+            <ul>
+                <li><strong>Dashboard</strong> → "Tracking Status: Active" en vert</li>
+                <li><strong>Recordings</strong> → Nouvelles sessions d'enregistrement apparaissent</li>
+                <li><strong>Heatmaps</strong> → Données de clics/scrolls qui s'accumulent</li>
+                <li><strong>Settings</strong> → "Verify Installation" montre une validation ✅</li>
+                <li><strong>Surveys & Feedback</strong> → Outils disponibles et fonctionnels</li>
+            </ul>
+        </div>
+        
+        <div class="troubleshoot">
+            <h4>🔧 Si "Tracking Inactive" :</h4>
+            <div class="code">
+// Dans la console, vérifiez :
+typeof hj       // Devrait être "function"
+hj('identify', 'test-user-' + Date.now(), {
+    test_source: 'tps_star',
+    verification: true
+})
+            </div>
+            <p><strong>ID Hotjar configuré :</strong> 6564192</p>
+        </div>
+    </div>
+
+    <div class="platform ga4">
+        <h2><span class="icon">📈</span>Google Analytics 4 (GA4)</h2>
+        
+        <div class="url">
+            <strong>Dashboard :</strong> https://analytics.google.com
+        </div>
+        
+        <div class="checklist">
+            <h4>✅ Ce que vous devriez voir :</h4>
+            <ul>
+                <li><strong>Real-time</strong> → Utilisateurs actifs (vous apparaissez immédiatement)</li>
+                <li><strong>Events</strong> → page_view, session_start, user_engagement</li>
+                <li><strong>Pages and screens</strong> → Vos pages visitées avec métriques</li>
+                <li><strong>Locations</strong> → Votre géolocalisation correcte</li>
+                <li><strong>Traffic acquisition</strong> → Source de trafic identifiée</li>
+            </ul>
+        </div>
+        
+        <div class="troubleshoot">
+            <h4>🔧 Si pas de données temps réel :</h4>
+            <div class="code">
+// Dans la console, vérifiez :
+typeof gtag     // Devrait être "function"
+gtag('event', 'tps_verification', {
+    test_parameter: 'dashboard_check',
+    timestamp: Date.now()
+})
+            </div>
+            <p><strong>ID GA4 configuré :</strong> G-E4NPI2ZZM3</p>
+        </div>
+    </div>
+
+    <div class="platform meta">
+        <h2><span class="icon">📱</span>Meta Business (Facebook Pixel)</h2>
+        
+        <div class="url">
+            <strong>Dashboard :</strong> https://business.facebook.com/events_manager
+        </div>
+        
+        <div class="checklist">
+            <h4>✅ Ce que vous devriez voir :</h4>
+            <ul>
+                <li><strong>Events</strong> → PageView événements en temps réel</li>
+                <li><strong>Test Events</strong> → Activité récente depuis votre IP</li>
+                <li><strong>Pixel Quality</strong> → Score "Good" ou "Great"</li>
+                <li><strong>Data Sources</strong> → Pixel status "Active" et connecté</li>
+                <li><strong>Overview</strong> → Métriques d'événements et conversions</li>
+            </ul>
+        </div>
+        
+        <div class="troubleshoot">
+            <h4>🔧 Si pas d'événements :</h4>
+            <div class="code">
+// Dans la console, vérifiez :
+typeof fbq      // Devrait être "function"
+fbq('track', 'Lead', {
+    test_source: 'tps_star_verification',
+    timestamp: Date.now()
+})
+            </div>
+            <p><strong>ID Meta Pixel configuré :</strong> 1973238620087976</p>
+        </div>
+    </div>
+
+    <h2>⏱️ Timing d'Apparition des Données</h2>
+    
+    <table class="timing-table">
+        <thead>
+            <tr>
+                <th>Plateforme</th>
+                <th>Temps d'apparition</th>
+                <th>Où vérifier en priorité</th>
+                <th>Délai maximum</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Microsoft Clarity</strong></td>
+                <td>2-5 minutes</td>
+                <td>Real-time dashboard</td>
+                <td>15 minutes</td>
+            </tr>
+            <tr>
+                <td><strong>Hotjar</strong></td>
+                <td>3-10 minutes</td>
+                <td>Recordings/Dashboard</td>
+                <td>20 minutes</td>
+            </tr>
+            <tr>
+                <td><strong>Google Analytics 4</strong></td>
+                <td>Immédiat-2 minutes</td>
+                <td>Real-time reports</td>
+                <td>5 minutes</td>
+            </tr>
+            <tr>
+                <td><strong>Meta Business</strong></td>
+                <td>1-5 minutes</td>
+                <td>Test Events</td>
+                <td>10 minutes</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="test-script">
+        <h3>🧪 Script de Test Automatique</h3>
+        <p>Copiez-collez ce code dans la console de votre site pour tester tous les trackers :</p>
+        
+        <div class="code">
+// === TPS-STAR TRACKERS VERIFICATION SCRIPT ===
+console.group('🧪 TPS-STAR Trackers Test');
+
+// Test 1: Vérifier que TPS est chargé
+console.log('1. 🔍 TPS Status:', typeof TPS === 'object' ? '✅ Loaded' : '❌ Missing');
+
+// Test 2: Vérifier chaque tracker
+const trackers = {
+  'Meta Pixel (fbq)': typeof fbq,
+  'Google Analytics (gtag)': typeof gtag, 
+  'Microsoft Clarity (clarity)': typeof clarity,
+  'Hotjar (hj)': typeof hj
+};
+
+console.log('2. 📊 Trackers Status:');
+Object.entries(trackers).forEach(([name, type]) => {
+  console.log(`   ${type === 'function' ? '✅' : '❌'} ${name}: ${type}`);
+});
+
+// Test 3: Envoyer des événements de test
+console.log('3. 🎯 Sending test events...');
+
+if (typeof fbq === 'function') {
+  fbq('track', 'Lead', { test_source: 'tps_star', timestamp: Date.now() });
+  console.log('   ✅ Meta Pixel test event sent');
+}
+
+if (typeof gtag === 'function') {
+  gtag('event', 'tps_test', { test_source: 'tps_star', timestamp: Date.now() });
+  console.log('   ✅ GA4 test event sent');
+}
+
+if (typeof clarity === 'function') {
+  clarity('set', 'test_source', 'tps_star');
+  clarity('identify', 'test-user-' + Date.now());
+  console.log('   ✅ Clarity test data sent');
+}
+
+if (typeof hj === 'function') {
+  hj('identify', 'test-user-' + Date.now(), {
+    test_source: 'tps_star', timestamp: Date.now()
+  });
+  console.log('   ✅ Hotjar test data sent');
+}
+
+console.groupEnd();
+        </div>
+    </div>
+
+    <div class="alert">
+        <h3>🆘 Dépannage Global</h3>
+        <p><strong>Si aucune donnée n'apparaît dans AUCUN dashboard :</strong></p>
+        <ul>
+            <li>Vérifiez que vous n'êtes pas en navigation privée</li>
+            <li>Désactivez temporairement tous les ad-blockers</li>
+            <li>Testez depuis une connexion/appareil différent</li>
+            <li>Vérifiez les metafields Shopify (namespace: custom_integrations)</li>
+            <li>Confirmez que <code>TPS.debug.enable()</code> montre toutes les plateformes actives</li>
+        </ul>
+        
+        <p><strong>Si seulement certaines plateformes ne fonctionnent pas :</strong></p>
+        <ul>
+            <li>Vérifiez les IDs spécifiques dans les metafields Shopify</li>
+            <li>Testez les fonctions individuelles dans la console</li>
+            <li>Consultez les logs d'erreur du navigateur (F12 → Console)</li>
+            <li>Vérifiez que Storefront API access est activé pour tous les metafields</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p><strong>TPS-STAR Universal Tracking System</strong></p>
+        <p>Guide généré le 02/11/2025 à 21:31</p>
+        <p>Version: 2.0 - Système de tracking universel pour Shopify</p>
+        <p>🚀 Une fois tous les dashboards actifs, votre TPS-STAR est 100% opérationnel !</p>
+    </div>
+</body>
+</html>
+    
