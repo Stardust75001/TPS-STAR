@@ -246,9 +246,9 @@
         };
 
         console.log('[TPS-STAR] Sentry Release Health initialized');
-      }
-
         console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
+      }).catch(() => {
+        console.warn('[TPS] Sentry load failed');
       });
     }
 
@@ -263,6 +263,7 @@
       })(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
       try {
+        console.log('[TPS] meta id:', cfg.meta_pixel_id, typeof cfg.meta_pixel_id);
         fbq('init', cfg.meta_pixel_id);
         fbq('track', 'PageView');
         console.log('[TPS-STAR] Meta Pixel initialized:', cfg.meta_pixel_id);
@@ -286,13 +287,14 @@
     if (cfg.hotjar_id) {
       (function (c, s, q, u, a, r, e) {
         c.hj=c.hj||function(){(c.hj.q=c.hj.q||[]).push(arguments)};
-        c._hjSettings = { hjid: a };
+        c._hjSettings = { hjid: parseInt(a, 10), hjsv: 6 };
         r = s.getElementsByTagName('head')[0];
         e = s.createElement('script');
         e.async = true;
         e.src = q + c._hjSettings.hjid + u;
         r.appendChild(e);
-      })(window, document, 'https://static.hj.contentsquare.net/c/csq-', '.js', cfg.hotjar_id);
+      })(window, document, 'https://static.hotjar.com/c/hotjar-', '.js?sv=', cfg.hotjar_id);
+      console.log('🔥 Hotjar loaded:', cfg.hotjar_id);
     }
 
     // === MICROSOFT CLARITY ===
@@ -302,6 +304,7 @@
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
       })(window, document, "clarity", "script", cfg.clarity_id);
+      console.log('🪟 Clarity loaded:', cfg.clarity_id);
     }
 
     // === TIKTOK PIXEL ===
