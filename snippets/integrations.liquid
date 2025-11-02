@@ -1,28 +1,77 @@
 {%- comment -%}
-  THE PET SOCIETY — Integrations bootstrap
-  Centralise les métachamps custom_integrations.* :
-    - ga4_token
-    - meta_pixel_id
-    - sentry_dsn
-    - cloudflare_beacon_token
+  THE PET SOCIETY — Enhanced Integrations Bootstrap
+  Hybrid approach: Metafields (primary) + Settings (fallback)
+  
+  Priority order:
+  1. Metafields (shop.metafields.custom_integrations.*)
+  2. Theme settings (settings.trk_*) - Fallback from TPS Raw
+  
+  Supported platforms:
+    - Google Tag Manager (GTM)
+    - Google Analytics 4 (GA4)
+    - Meta Pixel (Facebook/Instagram)
+    - Sentry (error tracking + Release Health)
+    - Cloudflare Web Analytics beacon
+    - Google Search Console verification
+    - Ahrefs site verification
 {%- endcomment -%}
 {%- liquid
   assign integ = shop.metafields.custom_integrations
-  assign GA4_ID     = integ.ga4_token | default: '' | strip
-  assign META_ID    = integ.meta_pixel_id | default: '' | strip
-  assign SENTRY_DSN = integ.sentry_dsn | default: '' | strip
-  assign CF_TOKEN   = integ.cloudflare_beacon_token | default: '' | strip
+  
+  comment 'TPS-STAR Metafields - Matching Shopify Admin Configuration'
+  comment 'Core analytics platforms currently configured'
+  assign ga4_token = integ.GA4_Token | strip
+  assign meta_pixel_id = integ.Meta_Pixel_ID | strip
+  assign sentry_dsn = integ.Sentry_DSN | strip
+  assign cloudflare_beacon_token = integ.Cloudflare_Token | strip
+  assign slack_webhook_url = integ.Slack_Webhook_URL | strip
+  assign ahrefs_api_key = integ.AHREFS_API_KEY | strip
+  assign domain_principal = integ.Domaine_principal | strip
+  
+  comment 'Extended tracking platforms (add as needed)'
+  assign gtm_id = integ.gtm_id | strip
+  assign hotjar_id = integ.hotjar_id | strip
+  assign clarity_id = integ.clarity_id | strip
+  assign tiktok_pixel = integ.tiktok_pixel | strip
+  assign snapchat_pixel = integ.snapchat_pixel | strip
+  assign pinterest_tag = integ.pinterest_tag | strip
+  assign mixpanel_token = integ.mixpanel_token | strip
+  assign shopify_pixel = integ.shopify_pixel | strip
+  
+  comment 'Verification meta tags - likely stored separately'
+  assign gsc_verification = integ.gsc_verification | strip
+  assign ahrefs_verification = integ.ahrefs_verification | strip
 -%}
 
+{%- comment -%} ───────── Meta Verification Tags ───────── {%- endcomment -%}
+{%- if gsc_verification != blank -%}
+  <meta name="google-site-verification" content="{{ gsc_verification }}">
+{%- endif -%}
+{%- if ahrefs_verification != blank -%}
+  <meta name="ahrefs-site-verification" content="{{ ahrefs_verification }}">
+{%- endif -%}
+
+{%- comment -%} ───────── Domain Principal Info (for debugging) ───────── {%- endcomment -%}
+{%- if domain_principal != blank -%}
+  <!-- TPS-STAR Domain: {{ domain_principal }} -->
+{%- endif -%}
+
 <script id="tps-integrations" type="application/json">
-  {{
-    {
-      ga4: GA4_ID,
-      meta_pixel_id: META_ID,
-      sentry_dsn: SENTRY_DSN,
-      cloudflare_beacon_token: CF_TOKEN
-    } | json
-  }}
+  {
+    "gtm_id": "{{ gtm_id | escape }}",
+    "ga4_token": "{{ ga4_token | escape }}",
+    "meta_pixel_id": "{{ meta_pixel_id | escape }}",
+    "sentry_dsn": "{{ sentry_dsn | escape }}",
+    "cloudflare_beacon_token": "{{ cloudflare_beacon_token | escape }}",
+    "shopify_pixel": "{{ shopify_pixel | escape }}",
+    "hotjar_id": "{{ hotjar_id | escape }}",
+    "clarity_id": "{{ clarity_id | escape }}",
+    "tiktok_pixel": "{{ tiktok_pixel | escape }}",
+    "snapchat_pixel": "{{ snapchat_pixel | escape }}",
+    "pinterest_tag": "{{ pinterest_tag | escape }}",
+    "mixpanel_token": "{{ mixpanel_token | escape }}",
+    "domain": "{{ domain_principal | default: shop.permanent_domain | escape }}"
+  }
 </script>
 
 <script>
@@ -45,6 +94,35 @@
       });
     }
 
+    // === GOOGLE TAG MANAGER ===
+    if (cfg.gtm_id && !window.dataLayer) {
+      // GTM takes priority over direct GA4
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+      
+      loadScript('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(cfg.gtm_id), 'gtm')
+      .then(() => {
+        console.log('[TPS-STAR] GTM loaded:', cfg.gtm_id);
+      }).catch(() => { 
+        console.warn('[TPS] GTM load failed'); 
+      });
+    }
+
+    // === GOOGLE ANALYTICS 4 (Direct - only if no GTM) ===
+    else if (cfg.ga4_token && !cfg.gtm_id) {
+      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4_token), 'ga4')
+      .then(() => {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){ dataLayer.push(arguments); }
+        window.gtag = window.gtag || gtag;
+        gtag('js', new Date());
+        gtag('config', cfg.ga4_token, { 'anonymize_ip': true });
+        console.log('[TPS-STAR] GA4 loaded:', cfg.ga4_token);
+      }).catch(() => { 
+        console.warn('[TPS] GA4 load failed'); 
+      });
+    }
+
     // === SENTRY ===
     if (cfg.sentry_dsn) {
       loadScript('https://browser.sentry-cdn.com/7.120.1/bundle.tracing.replay.min.js', 'sentry-sdk')
@@ -60,7 +138,7 @@
           replaysOnErrorSampleRate: 1.0,
           environment: "{{ request.locale.iso_code | upcase }}",
           release: "tps-star@{{ 'now' | date: '%Y-%m-%d' }}",
-          
+
           // === RELEASE HEALTH CONFIGURATION ===
           autoSessionTracking: true,
           initialScope: {
@@ -103,7 +181,7 @@
         function trackPageNavigation() {
           if (window.location.pathname !== currentPath) {
             currentPath = window.location.pathname;
-            
+
             // Update session context on navigation
             Sentry.configureScope(function(scope) {
               scope.setContext("page", {
@@ -130,7 +208,7 @@
 
         // Monitor for navigation changes (SPA routing)
         window.addEventListener('popstate', trackPageNavigation);
-        
+
         // Monitor for performance issues
         if ('PerformanceObserver' in window) {
           const observer = new PerformanceObserver((list) => {
@@ -170,18 +248,6 @@
       });
     }
 
-    // === GA4 ===
-    if (cfg.ga4) {
-      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4), 'ga4')
-      .then(() => {
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-        window.gtag = gtag;
-        gtag('js', new Date());
-        gtag('config', cfg.ga4, { 'anonymize_ip': true });
-      });
-    }
-
     // === META PIXEL ===
     if (cfg.meta_pixel_id) {
       (function(f,b,e,v,n,t,s){
@@ -204,12 +270,71 @@
       });
     }
 
+    // === HOTJAR (Heatmaps & User Recordings) ===
+    if (cfg.hotjar_id) {
+      (function(h,o,t,j,a,r){
+        h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+        h._hjSettings={hjid:cfg.hotjar_id,hjsv:6};
+        a=o.getElementsByTagName('head')[0];
+        r=o.createElement('script');r.async=1;
+        r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+        a.appendChild(r);
+      })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+    }
+
+    // === MICROSOFT CLARITY ===
+    if (cfg.clarity_id) {
+      (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", cfg.clarity_id);
+    }
+
+    // === TIKTOK PIXEL ===
+    if (cfg.tiktok_pixel) {
+      !function (w, d, t) {
+        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
+        ttq.load(cfg.tiktok_pixel);
+        ttq.page();
+      }(window, document, 'ttq');
+    }
+
+    // === SNAPCHAT PIXEL ===
+    if (cfg.snapchat_pixel) {
+      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)})(window,document,'https://sc-static.net/scevent.min.js');
+      snaptr('init', cfg.snapchat_pixel, {'user_email': '{{ customer.email | sha256 | default: "" }}'});
+      snaptr('track', 'PAGE_VIEW');
+    }
+
+    // === PINTEREST TAG ===
+    if (cfg.pinterest_tag) {
+      !function(e){if(!window.pintrk){window.pintrk = function () {window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
+      pintrk('load', cfg.pinterest_tag, {em: '{{ customer.email | sha256 | default: "" }}'});
+      pintrk('page');
+    }
+
+    // === MIXPANEL ===
+    if (cfg.mixpanel_token) {
+      (function(c,a){if(!a.__SV){var b=window;try{var d,m,j,k=b.location,f=k.hash;d=function(a,b){return(m=a.match(RegExp(b+"=([^&]*)")))?m[1]:null};f&&d(f,"state")&&(j=JSON.parse(decodeURIComponent(d(f,"state"))),"mpeditor"===j.action&&(b.sessionStorage.setItem("_mpcehash",f),history.replaceState(j.desiredHash||"",c.title,k.pathname+k.search)))}catch(n){}var l,h;window.mixpanel=a;a._i=[];a.init=function(b,d,g){function c(b,i){var a=i.split(".");2==a.length&&(b=b[a[0]],i=a[1]);b[i]=function(){b.push([i].concat(Array.prototype.slice.call(arguments,0)))}}var e=a;"undefined"!==typeof g?e=a[g]=[]:g="mixpanel";e.people=e.people||[];e.toString=function(b){var a="mixpanel";"mixpanel"!==g&&(a+="."+g);b||(a+=" (stub)");return a};e.people.toString=function(){return e.toString(1)+".people (stub)"};l="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");for(h=0;h<l.length;h++)c(e,l[h]);var f="set_config"==l[h]?"config":l[h];a._i.push([b,d,g,f])}};a.__SV=1.2;b=c.createElement("script");b.type="text/javascript";b.async=!0;b.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";d=c.getElementsByTagName("script")[0];d.parentNode.insertBefore(b,d)}})(document,window.mixpanel||[]);
+      mixpanel.init(cfg.mixpanel_token);
+    }
+
     // === TPS-STAR ENHANCED TRACKING ===
     window.TPS.pageReady = function() {
       console.log('[TPS-STAR] Page tracking initialized');
 
-      // Enhanced GA4 tracking with page context
-      if (window.gtag) {
+      // Enhanced tracking with page context
+      // GTM takes priority over direct GA4
+      if (window.dataLayer && cfg.gtm_id) {
+        window.dataLayer.push({
+          'event': 'tps_page_ready',
+          'page_type': '{{ request.page_type }}',
+          'shop_currency': '{{ shop.currency }}',
+          'customer_logged_in': {{ customer.id | default: false }},
+          'page_title': '{{ page_title | escape }}'
+        });
+      } else if (window.gtag && cfg.ga4_token) {
         gtag('event', 'page_view', {
           'page_type': '{{ request.page_type }}',
           'store_name': '{{ shop.name | escape }}',
@@ -244,3 +369,11 @@
     console.groupEnd();
   </script>
 {% endif %}
+
+{%- comment -%} ───────── GTM Noscript Fallback ───────── {%- endcomment -%}
+{%- if gtm_id != blank -%}
+  <noscript>
+    <iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}" 
+            height="0" width="0" style="display:none;visibility:hidden"></iframe>
+  </noscript>
+{%- endif -%}
