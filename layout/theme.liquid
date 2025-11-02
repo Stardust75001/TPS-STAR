@@ -13,7 +13,25 @@
   {% endif %}
 >
   <head>
-    {%- render 'integrations' -%}
+    {% comment %}
+    SENTRY - Tracking global des erreurs front
+    {% endcomment %}
+    <script
+      src="https://js-de.sentry-cdn.com/72a646f950001f6ec2292d3064978d94.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      Sentry.onLoad(function() {
+        Sentry.init({
+          dsn: "https://72a646f950001f6ec2292d3064978d94@o4509330673303552.ingest.de.sentry.io/4510291474972752",
+          integrations: [new Sentry.BrowserTracing()],
+          tracesSampleRate: 1.0,
+          replaysSessionSampleRate: 0.1,
+          replaysOnErrorSampleRate: 1.0,
+        });
+      });
+    </script>
+
     {% comment %} Google Analytics 4 {% endcomment %}
     {% if settings.google_analytics_4_measurement_id != blank %}
       <!-- Google tag (gtag.js) -->
@@ -132,6 +150,118 @@
       async
     ></script>
     {%- render 'tracking-analytics' -%}
+
+    {%- comment -%}
+      THE PET SOCIETY — Integrations bootstrap
+      Lit les métachamps Shopify:
+        - custom_integrations.ga4_token                (ex: G-XXXXXXX)
+        - custom_integrations.meta_pixel_id            (ex: 1973238620082976)
+        - custom_integrations.sentry_dsn               (ex: https://<pubKey>@oXXXX.ingest.sentry.io/XXXX)
+        - custom_integrations.cloudflare_beacon_token  (ex: 21fc2470e9e94a4b... )
+    {%- endcomment -%}
+    {%- liquid
+      assign integ = shop.metafields.custom_integrations
+      assign ga4_id     = integ.ga4_token            | default: '' | strip
+      assign meta_id    = integ.meta_pixel_id        | default: '' | strip
+      assign sentry_dsn = integ.sentry_dsn           | default: '' | strip
+      assign cf_token   = integ.cloudflare_beacon_token | default: '' | strip
+    -%}
+
+    {%- comment -%} Expose aussi en JSON pur pour d'autres scripts {%- endcomment -%}
+    <script id="tps-integrations" type="application/json">
+      {
+        "ga4": "{{ ga4_id | escape }}",
+        "meta_pixel_id": "{{ meta_id | escape }}",
+        "sentry_dsn": "{{ sentry_dsn | escape }}",
+        "cloudflare_beacon_token": "{{ cf_token | escape }}"
+      }
+    </script>
+
+    <script>
+      (function () {
+        // --- Parse JSON config once
+        var cfgEl = document.getElementById('tps-integrations');
+        var cfg = {};
+        try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+
+        // --- Expose sous un seul namespace global, évite les doublons
+        window.TPS = window.TPS || {};
+        window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
+
+        // --- Petit helper pour charger un script une seule fois
+        function loadScript(src, id, attrs) {
+          return new Promise(function(resolve, reject){
+            if (id && document.getElementById(id)) return resolve();
+            var s = document.createElement('script');
+            s.src = src; s.async = true; if (id) s.id = id;
+            if (attrs) Object.keys(attrs).forEach(k => s.setAttribute(k, attrs[k]));
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        // ============= SENTRY (si DSN présent) =============
+        if (cfg.sentry_dsn) {
+          // SDK navigateur + tracing
+          loadScript('https://browser.sentry-cdn.com/7.120.1/bundle.tracing.replay.min.js', 'sentry-sdk')
+          .then(function () {
+            // eslint-disable-next-line no-undef
+            Sentry.init({
+              dsn: cfg.sentry_dsn,
+              integrations: [
+                // eslint-disable-next-line no-undef
+                Sentry.browserTracingIntegration(),
+                // eslint-disable-next-line no-undef
+                Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })
+              ],
+              tracesSampleRate: 1.0,
+              replaysSessionSampleRate: 0.1,
+              replaysOnErrorSampleRate: 1.0,
+              environment: "{{ request.locale.iso_code | upcase }}",
+              release: "{{ shop.permanent_domain }}@{{ 'now' | date: '%Y-%m-%d' }}"
+            });
+          }).catch(function(){ console.warn('[TPS] Sentry SDK load failed'); });
+        }
+
+        // ============= GA4 (si ID présent) =============
+        if (cfg.ga4) {
+          loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4), 'ga4')
+          .then(function () {
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){ dataLayer.push(arguments); }
+            window.gtag = window.gtag || gtag;
+            gtag('js', new Date());
+            gtag('config', cfg.ga4, { 'anonymize_ip': true });
+          }).catch(function(){ console.warn('[TPS] GA4 load failed'); });
+        }
+
+        // ============= META PIXEL (si ID présent) =============
+        if (cfg.meta_pixel_id) {
+          // fbq snippet officiel, protégé contre double init
+          (function(f,b,e,v,n,t,s){
+            if (f.fbq) return; n=f.fbq=function(){ n.callMethod ?
+              n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+            if (!f._fbq) f._fbq=n; n.push=n; n.loaded=!0; n.version='2.0';
+            n.queue=[]; t=b.createElement(e); t.async=!0; t.src=v;
+            s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+          })(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+          try {
+            fbq('init', cfg.meta_pixel_id);
+            fbq('track', 'PageView');
+          } catch(e) { console.warn('[TPS] Meta Pixel init failed'); }
+        }
+
+        // ============= CLOUDFLARE BEACON (si token présent) =============
+        if (cfg.cloudflare_beacon_token) {
+          loadScript('https://static.cloudflareinsights.com/beacon.min.js', 'cf-beacon', {
+            'defer': '',
+            'data-cf-beacon': JSON.stringify({ token: cfg.cloudflare_beacon_token })
+          }).catch(function(){ console.warn('[TPS] CF Beacon load failed'); });
+        }
+      })();
+    </script>
+    {% render 'integrations' %}
   </head>
 
   <body class="{{ request.page_type | prepend: 'page-type-' }}">
