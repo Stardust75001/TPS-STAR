@@ -1,105 +1,92 @@
 {% comment %}
-  Universal Tracking & Analytics Snippet
-  This snippet centralizes all tracking codes and analytics integrations
+---------------------------------------------------------
+THE PET SOCIETY — Tracking Analytics Snippet
+Version : 1.0
+---------------------------------------------------------
+Ce snippet gère :
+ - le chargement du SDK universel (TPS Tracking)
+ - les balises data-* pour auto-tracking
+ - les exemples de tracking manuel (newsletter, recos, add-to-cart)
+---------------------------------------------------------
 {% endcomment %}
 
-{% comment %} Google Tag Manager {% endcomment %}
-{% if settings.google_tag_manager_id != blank %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ settings.google_tag_manager_id }}');</script>
-  <!-- End Google Tag Manager -->
-{% endif %}
+{%- comment -%} ⚙️ Intégrations universelles (GA4, Meta, Sentry, CF) {%- endcomment -%}
+{%- liquid
+  assign integ = shop.metafields.custom_integrations
 
-{% comment %} Google Analytics 4 {% endcomment %}
-{% if settings.google_analytics_4_measurement_id != blank %}
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id={{ settings.google_analytics_4_measurement_id }}"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', '{{ settings.google_analytics_4_measurement_id }}');
-  </script>
-{% endif %}
+  comment 'Map metafields to expected names (handle case variations)'
+  assign ga4_token = integ.GA4_Token | default: integ.ga4_token | strip
+  assign meta_pixel_id = integ.Meta_Pixel_ID | default: integ.meta_pixel_id | strip
+  assign sentry_dsn = integ.Sentry_DSN | default: integ.sentry_dsn | strip
+  assign cloudflare_token = integ.Cloudflare_Token | default: integ.cloudflare_beacon_token | strip
 
-{% comment %} Meta Pixel {% endcomment %}
-{% if settings.meta_pixel_id != blank %}
-  <!-- Meta Pixel Code -->
-  <script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '{{ settings.meta_pixel_id }}');
-  fbq('track', 'PageView');
-  </script>
-  <noscript><img height="1" width="1" style="display:none"
-  src="https://www.facebook.com/tr?id={{ settings.meta_pixel_id }}&ev=PageView&noscript=1"
-  /></noscript>
-  <!-- End Meta Pixel Code -->
-{% endif %}
+  comment 'Optional free analytics platforms'
+  assign clarity_id = integ.Clarity_ID | default: integ.clarity_id | strip
+  assign hotjar_id = integ.Hotjar_ID | default: integ.hotjar_id | strip
+  assign amplitude_key = integ.Amplitude_Key | default: integ.amplitude_key | strip
+-%}
 
-{% comment %} Sentry Error Monitoring {% endcomment %}
-{% if settings.tracking_sentry_dsn != blank %}
-  <script
-    src="https://browser.sentry-cdn.com/8.36.0/bundle.tracing.min.js"
-    integrity="sha384-hgB1rNnl6sZ7WQFgF7cQnOvuSJR4AUvPOZxQjrKfpMq/dNLUFRQ4qFNxqCjHdXRa"
-    crossorigin="anonymous"
-  ></script>
-  <script>
-    Sentry.init({
-      dsn: "{{ settings.tracking_sentry_dsn }}",
-      {% if settings.tracking_sentry_environment != blank %}
-        environment: "{{ settings.tracking_sentry_environment }}",
-      {% endif %}
-      integrations: [
-        Sentry.browserTracingIntegration(),
-      ],
-      tracesSampleRate: 0.1,
-    });
-  </script>
-{% endif %}
+<script id="tps-integrations" type="application/json">
+{
+  "ga4": "{{ ga4_token | escape }}",
+  "meta_pixel_id": "{{ meta_pixel_id | escape }}",
+  "sentry_dsn": "{{ sentry_dsn | escape }}",
+  "cloudflare_beacon_token": "{{ cloudflare_token | escape }}",
+  "clarity_id": "{{ clarity_id | escape }}",
+  "hotjar_id": "{{ hotjar_id | escape }}",
+  "amplitude_key": "{{ amplitude_key | escape }}"
+}
+</script>
 
-{% comment %} Cloudflare Beacon {% endcomment %}
-{% if settings.cloudflare_beacon_token != blank %}
-  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" 
-          data-cf-beacon='{"token": "{{ settings.cloudflare_beacon_token }}"}'></script>
-{% endif %}
+{%- comment -%} 📡 SDK principal {%- endcomment -%}
+<script src="{{ 'tps-tracking.js' | asset_url }}" defer></script>
 
-{% comment %} Google Search Console Verification {% endcomment %}
-{% if settings.google_search_console_verification != blank %}
-  <meta name="google-site-verification" content="{{ settings.google_search_console_verification }}" />
-{% endif %}
+{%- comment -%}
+🧩 Exemples d’usage : ils déclenchent automatiquement des événements
+si le SDK TPS est chargé et si le thème contient les bons data-attributes.
+{%- endcomment -%}
 
-{% comment %} Ahrefs Verification {% endcomment %}
-{% if settings.ahrefs_verification != blank %}
-  <meta name="ahrefs-site-verification" content="{{ settings.ahrefs_verification }}">
-{% endif %}
+<!-- ========== 1️⃣ Formulaire Newsletter ========== -->
+<form data-newsletter data-location="footer" class="newsletter-form">
+  <input type="email" name="contact[email]" placeholder="Enter your email" required>
+  <button type="submit">{{ 'general.newsletter.submit' | t }}</button>
+</form>
 
-{% comment %} Zik Analytics {% endcomment %}
-{% if settings.zik_analytics_script_url != blank %}
-  <script async src="{{ settings.zik_analytics_script_url }}"></script>
-{% endif %}
+<!-- ========== 2️⃣ Recommandations Produits ========== -->
+{%- if recommendations.products.size > 0 -%}
+<div class="recommended-products">
+  {% for product in recommendations.products %}
+    <a
+      href="{{ product.url }}"
+      class="rec-item"
+      data-rec-product-id="{{ product.id }}"
+      data-rec-position="{{ forloop.index }}"
+      data-rec-source="homepage"
+    >
+      {{ product.title }}
+    </a>
+  {% endfor %}
+</div>
+{%- endif -%}
 
-{% comment %} Debug Console for Development {% endcomment %}
-{% if settings.active_debug_console %}
-  <script>
-    console.log("🔍 Tracking & Analytics Debug Mode Active");
-    console.log("📊 Google Tag Manager:", "{{ settings.google_tag_manager_id | default: 'Not configured' }}");
-    console.log("📈 Google Analytics 4:", "{{ settings.google_analytics_4_measurement_id | default: 'Not configured' }}");
-    console.log("📘 Meta Pixel:", "{{ settings.meta_pixel_id | default: 'Not configured' }}");
-    console.log("🚨 Sentry DSN:", "{{ settings.tracking_sentry_dsn | default: 'Not configured' }}");
-    console.log("🛡️ Cloudflare Beacon:", "{{ settings.cloudflare_beacon_token | default: 'Not configured' }}");
-    console.log("🔎 Google Search Console:", "{{ settings.google_search_console_verification | default: 'Not configured' }}");
-    console.log("🔗 Ahrefs:", "{{ settings.ahrefs_verification | default: 'Not configured' }}");
-    console.log("📊 Zik Analytics:", "{{ settings.zik_analytics_script_url | default: 'Not configured' }}");
-  </script>
-{% endif %}
+<!-- ========== 3️⃣ Bouton Add to Cart spécifique ========== -->
+{%- if product -%}
+  <button
+    id="btn-add-hero"
+    class="btn btn-primary"
+    data-track-add
+    data-product-id="{{ product.selected_or_first_available_variant.id }}"
+    data-product-name="{{ product.title | escape }}"
+    data-price="{{ product.selected_or_first_available_variant.price | money_without_currency | replace: ',', '.' }}"
+    data-source="hero_button"
+  >
+    {{ 'products.product.add_to_cart' | t }}
+  </button>
+{%- endif -%}
+
+{%- comment -%}
+📘 DEBUG & TEST :
+Dans la console navigateur :
+  localStorage.setItem('TPS_DEBUG','1'); location.reload();
+  TPS.debug.test('Test Event', {foo:'bar'});
+{%- endcomment -%}
