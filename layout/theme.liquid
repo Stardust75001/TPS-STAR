@@ -14,6 +14,10 @@
 >
   <head>
     {%- render 'integrations' -%}
+
+    {%- comment -%} DEBUG TEMPORAIRE - Vérification des metafields {%- endcomment -%}
+    <script>console.log('TPS mf:', {{ shop.metafields.custom_integrations | json }} );</script>
+
     {% comment %} Google Analytics 4 {% endcomment %}
     {% if settings.google_analytics_4_measurement_id != blank %}
       <!-- Google tag (gtag.js) -->
@@ -115,12 +119,7 @@
       });
     </script>
 
-    {% comment %} Sentry Monitoring {% endcomment %}
-    <!-- Sentry Monitoring (local asset loader with CDN fallback) -->
-    {% if settings.sentry_enabled and settings.sentry_dsn %}
-      <script src="{{ 'sentry-init.js' | asset_url }}" defer></script>
-    {% endif %}
-    <!-- /Sentry Monitoring -->
+{%- comment -%} Sentry intégré via integrations.liquid {%- endcomment -%}
 
     {{ settings.code_javascript }}
     {{ settings.code_head }}
