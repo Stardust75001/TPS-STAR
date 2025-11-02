@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""
+Requirements file for TPS-STAR Weekly Analytics Report Generator
+================================================================
+
+This file contains all the Python dependencies needed to run the
+comprehensive analytics reporting system.
+
+Installation:
+pip install -r requirements.txt
+
+Dependencies include:
+- Data processing: pandas, numpy
+- Visualization: matplotlib, seaborn, plotly
+- Web scraping: requests
+- Time handling: pytz
+- Chart generation: kaleido (for static exports)
+"""
+
+# Data Processing & Analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization Libraries
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+kaleido>=0.2.1
+
+# Web Requests & APIs
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Time Zone Handling
+pytz>=2023.3
+
+# JSON Processing (built into Python, but good to specify)
+# json - built-in module
+
+# Date & Time Utilities
+python-dateutil>=2.8.0
+
+# Optional: For more advanced analytics
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Development & Testing (optional)
+pytest>=7.4.0
+black>=23.7.0
+flake8>=6.0.0
