@@ -35,6 +35,29 @@ window.handleAddToCartFormSubmit = async (form, event) => {
     body: new FormData(form)
   });
 
+  // 🎯 TPS-STAR: Track Add to Cart event across all analytics platforms
+  if (response.ok && window.TPS && window.TPS.trackEvent) {
+    try {
+      const data = await response.clone().json();
+      const formData = new FormData(form);
+      
+      window.TPS.trackEvent('Add to Cart', {
+        product_id: data.product_id || formData.get('id'),
+        product_title: data.product_title || document.querySelector('.product-title')?.textContent?.trim(),
+        variant_id: data.variant_id || formData.get('id'),
+        variant_title: data.variant_title,
+        price: data.price ? (data.price / 100) : null,
+        quantity: data.quantity || parseInt(formData.get('quantity')) || 1,
+        product_type: data.product_type,
+        vendor: data.vendor,
+        url: window.location.href,
+        currency: window.Shopify?.currency?.active || 'EUR'
+      });
+    } catch (error) {
+      console.warn('[TPS-STAR] Add to Cart tracking failed:', error);
+    }
+  }
+
   form.classList.remove('loading');
   btn.innerHTML = window.theme.product.addedToCart;
 
@@ -546,3 +569,37 @@ const initializeUpsellModal = () => {
   });
 };
 initializeUpsellModal();
+
+/* ======================
+   🎯 TPS-STAR PRODUCT VIEW TRACKING
+   ===================== */
+// Track product page views automatically
+if (window.TPS && window.TPS.trackEvent && typeof window.product !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    // Wait a bit for product data to be available
+    setTimeout(() => {
+      try {
+        const product = window.product || {};
+        const variant = window.currentVariant || product.selected_or_first_available_variant || {};
+        
+        window.TPS.trackEvent('Product View', {
+          product_id: product.id,
+          product_title: product.title || document.querySelector('.product-title, h1')?.textContent?.trim(),
+          product_type: product.type,
+          vendor: product.vendor,
+          variant_id: variant.id,
+          variant_title: variant.title,
+          price: variant.price ? (variant.price / 100) : null,
+          compare_at_price: variant.compare_at_price ? (variant.compare_at_price / 100) : null,
+          available: variant.available,
+          tags: product.tags || [],
+          url: window.location.href,
+          referrer: document.referrer || 'direct',
+          currency: window.Shopify?.currency?.active || 'EUR'
+        });
+      } catch (error) {
+        console.warn('[TPS-STAR] Product View tracking failed:', error);
+      }
+    }, 1000);
+  });
+}

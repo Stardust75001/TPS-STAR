@@ -96,15 +96,59 @@ window.handleCartItemRemoval = async btn => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: btn.dataset.lineItemKey, quantity: 0 })
   });
+
+  // 🎯 TPS-STAR: Track Remove from Cart event
+  if (response.ok && window.TPS && window.TPS.trackEvent) {
+    try {
+      const productTitle = btn.closest('[data-line-item]')?.querySelector('[data-product-title]')?.textContent?.trim();
+      const productPrice = btn.closest('[data-line-item]')?.querySelector('[data-line-price]')?.textContent;
+      
+      window.TPS.trackEvent('Remove from Cart', {
+        line_item_key: btn.dataset.lineItemKey,
+        product_title: productTitle,
+        price: productPrice ? parseFloat(productPrice.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
+        url: window.location.href
+      });
+    } catch (error) {
+      console.warn('[TPS-STAR] Remove from Cart tracking failed:', error);
+    }
+  }
+
   window.updateCartContents(response);
 };
 
 window.handleCartQuantityChange = async input => {
+  const oldQuantity = input.dataset.oldValue || 0;
+  const newQuantity = parseInt(input.value) || 0;
+  
   const response = await fetch('/cart/change.js', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: input.dataset.lineItemKey, quantity: input.value })
   });
+
+  // 🎯 TPS-STAR: Track Cart Quantity Change event
+  if (response.ok && window.TPS && window.TPS.trackEvent && newQuantity !== oldQuantity) {
+    try {
+      const productTitle = input.closest('[data-line-item]')?.querySelector('[data-product-title]')?.textContent?.trim();
+      const productPrice = input.closest('[data-line-item]')?.querySelector('[data-line-price]')?.textContent;
+      
+      window.TPS.trackEvent('Change Cart Quantity', {
+        line_item_key: input.dataset.lineItemKey,
+        product_title: productTitle,
+        old_quantity: parseInt(oldQuantity),
+        new_quantity: newQuantity,
+        quantity_change: newQuantity - parseInt(oldQuantity),
+        price: productPrice ? parseFloat(productPrice.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
+        url: window.location.href
+      });
+    } catch (error) {
+      console.warn('[TPS-STAR] Cart Quantity Change tracking failed:', error);
+    }
+  }
+
+  // Store new value for next comparison
+  input.dataset.oldValue = input.value;
   window.updateCartContents(response);
 };
 
