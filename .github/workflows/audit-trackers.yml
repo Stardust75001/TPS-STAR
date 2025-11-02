@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           page="out/fetched.html"
 
+          # Helpers
           ok(){ echo "ok"; }
           ko(){ echo "missing"; }
 
