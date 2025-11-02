@@ -1,6 +1,6 @@
 # 🚀 TPS — Workflows & Pipelines (Cheat Sheet)
-_Généré automatiquement le 2025-11-02 01:20:09_
+_Généré automatiquement le 2025-11-02 02:07:35_
 
-## "🧩 Sentry Release & Deploy"
+## "🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)"
 
-- Fichier : `sentry-release.yml`
+- Fichier : `audit-trackers.yml`
