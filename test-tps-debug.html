@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPS-STAR Debug Test</title>
+</head>
+<body>
+    <h1>TPS-STAR Debug Test</h1>
+    <p>Ouvrez la console (F12) et tapez : <code>TPS.debug.enable()</code></p>
+
+    <!-- Simulation du JSON de configuration -->
+    <script id="tps-integrations" type="application/json">
+      {
+        "ga4": "G-E4NPI2ZZM3",
+        "meta_pixel_id": "1973238620087976",
+        "sentry_dsn": "",
+        "cloudflare_beacon_token": "21fd2470",
+        "clarity_id": "tzvd9w6rjs",
+        "hotjar_id": "6564192",
+        "amplitude_key": "",
+        "domain": "test-domain.com"
+      }
+    </script>
+
+    <!-- Version simplifiée de l'intégration pour test -->
+    <script>
+      (function () {
+        var cfgEl = document.getElementById('tps-integrations');
+        var cfg = {};
+        try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+
+        window.TPS = window.TPS || {};
+        window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
+
+        // TPS Debug function available immediately
+        window.TPS.debug = window.TPS.debug || {
+          enable: function() {
+            console.group('🔍 TPS-STAR Debug Info');
+            console.log('📊 Config loaded:', cfg);
+            console.log('🎯 Active platforms:', Object.keys(cfg).filter(k => cfg[k] && cfg[k] !== 'null' && cfg[k] !== ''));
+            console.log('🔗 TPS object:', window.TPS);
+            console.groupEnd();
+          }
+        };
+
+        console.log('✅ TPS-STAR initialized - Try: TPS.debug.enable()');
+      })();
+    </script>
+</body>
+</html>
