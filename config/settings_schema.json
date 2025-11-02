@@ -3776,5 +3776,61 @@
         "default": "#ffffff"
       }
     ]
+  },
+  {
+    "name": "Tracking & Analytics",
+    "settings": [
+      {
+        "type": "text",
+        "id": "google_tag_manager_id",
+        "label": "Google Tag Manager ID (ex: GTM-XXXXXXX)"
+      },
+      {
+        "type": "text",
+        "id": "google_analytics_4_measurement_id",
+        "label": "Google Analytics 4 Measurement ID (ex: G-XXXXXXXXXX)"
+      },
+      {
+        "type": "text",
+        "id": "meta_pixel_id",
+        "label": "Meta Pixel ID"
+      },
+      {
+        "type": "text",
+        "id": "tracking_sentry_dsn",
+        "label": "Sentry DSN"
+      },
+      {
+        "type": "text",
+        "id": "tracking_sentry_environment",
+        "label": "Sentry Environment (optionnel)"
+      },
+      {
+        "type": "text",
+        "id": "cloudflare_beacon_token",
+        "label": "Cloudflare Beacon Token"
+      },
+      {
+        "type": "text",
+        "id": "google_search_console_verification",
+        "label": "Google Search Console Verification"
+      },
+      {
+        "type": "text",
+        "id": "ahrefs_verification",
+        "label": "Ahrefs Verification"
+      },
+      {
+        "type": "text",
+        "id": "zik_analytics_script_url",
+        "label": "Zik Analytics Script URL"
+      },
+      {
+        "type": "checkbox",
+        "id": "active_debug_console",
+        "label": "Activer le mode debug console",
+        "info": "Quand activé, affiche dans la console navigateur des statuts de trackers (GTM, GA4, Meta, Sentry, Cloudflare, Zik)."
+      }
+    ]
   }
 ]
