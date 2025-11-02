@@ -61,6 +61,25 @@
           environment: "{{ request.locale.iso_code | upcase }}",
           release: "{{ shop.permanent_domain }}@{{ 'now' | date: '%Y-%m-%d' }}"
         });
+
+        // Add custom context and tags for TPS-STAR
+        Sentry.configureScope(function(scope) {
+          scope.setTag("store", "{{ shop.permanent_domain }}");
+          scope.setTag("theme", "tps-star");
+          scope.setTag("locale", "{{ request.locale.iso_code }}");
+          scope.setContext("page", {
+            type: "{{ request.page_type }}",
+            url: "{{ canonical_url }}",
+            title: "{{ page_title | escape }}"
+          });
+          scope.setContext("shop", {
+            name: "{{ shop.name | escape }}",
+            domain: "{{ shop.permanent_domain }}",
+            currency: "{{ shop.currency }}"
+          });
+        });
+
+        console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
       });
     }
 
@@ -97,5 +116,44 @@
         'data-cf-beacon': JSON.stringify({ token: cfg.cloudflare_beacon_token })
       });
     }
+
+    // === TPS-STAR ENHANCED TRACKING ===
+    window.TPS.pageReady = function() {
+      console.log('[TPS-STAR] Page tracking initialized');
+      
+      // Enhanced GA4 tracking with page context
+      if (window.gtag) {
+        gtag('event', 'page_view', {
+          'page_type': '{{ request.page_type }}',
+          'store_name': '{{ shop.name | escape }}',
+          'locale': '{{ request.locale.iso_code }}',
+          'theme': 'tps-star'
+        });
+      }
+    };
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
+    } else {
+      window.TPS.pageReady();
+    }
   })();
 </script>
+
+{% comment %} Debug mode for development {% endcomment %}
+{% if settings.active_debug_console %}
+  <script>
+    console.group('🔍 TPS-STAR Integrations Debug');
+    console.log('📊 Metafields Integration Status:');
+    console.log('  - GA4:', {{ shop.metafields.custom_integrations.ga4_token | default: 'Not set' | json }});
+    console.log('  - Meta Pixel:', {{ shop.metafields.custom_integrations.meta_pixel_id | default: 'Not set' | json }});
+    console.log('  - Sentry DSN:', {{ shop.metafields.custom_integrations.sentry_dsn | default: 'Not set' | json }});
+    console.log('  - Cloudflare:', {{ shop.metafields.custom_integrations.cloudflare_beacon_token | default: 'Not set' | json }});
+    console.log('🎯 Page Context:');
+    console.log('  - Type:', '{{ request.page_type }}');
+    console.log('  - Locale:', '{{ request.locale.iso_code }}');
+    console.log('  - URL:', '{{ canonical_url }}');
+    console.groupEnd();
+  </script>
+{% endif %}
