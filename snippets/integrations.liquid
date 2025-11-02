@@ -59,25 +59,112 @@
           replaysSessionSampleRate: 0.1,
           replaysOnErrorSampleRate: 1.0,
           environment: "{{ request.locale.iso_code | upcase }}",
-          release: "{{ shop.permanent_domain }}@{{ 'now' | date: '%Y-%m-%d' }}"
+          release: "tps-star@{{ 'now' | date: '%Y-%m-%d' }}",
+          
+          // === RELEASE HEALTH CONFIGURATION ===
+          autoSessionTracking: true,
+          initialScope: {
+            tags: {
+              "store": "{{ shop.permanent_domain }}",
+              "theme": "tps-star",
+              "locale": "{{ request.locale.iso_code }}",
+              "page_type": "{{ request.page_type }}",
+              "device_type": "web"
+            },
+            user: {
+              id: "{{ customer.id | default: 'anonymous' }}",
+              email: "{{ customer.email | default: null }}"
+            },
+            contexts: {
+              "page": {
+                "type": "{{ request.page_type }}",
+                "url": "{{ canonical_url }}",
+                "title": "{{ page_title | escape }}",
+                "referrer": document.referrer || null
+              },
+              "shop": {
+                "name": "{{ shop.name | escape }}",
+                "domain": "{{ shop.permanent_domain }}",
+                "currency": "{{ shop.currency }}",
+                "locale": "{{ request.locale.iso_code }}"
+              },
+              "session": {
+                "page_load_time": Date.now(),
+                "user_agent": navigator.userAgent,
+                "viewport": window.innerWidth + "x" + window.innerHeight
+              }
+            }
+          }
         });
 
-        // Add custom context and tags for TPS-STAR
-        Sentry.configureScope(function(scope) {
-          scope.setTag("store", "{{ shop.permanent_domain }}");
-          scope.setTag("theme", "tps-star");
-          scope.setTag("locale", "{{ request.locale.iso_code }}");
-          scope.setContext("page", {
-            type: "{{ request.page_type }}",
-            url: "{{ canonical_url }}",
-            title: "{{ page_title | escape }}"
+        // === RELEASE HEALTH & SESSION TRACKING ===
+        // Track page navigation for SPA-like behavior
+        let currentPath = window.location.pathname;
+        function trackPageNavigation() {
+          if (window.location.pathname !== currentPath) {
+            currentPath = window.location.pathname;
+            
+            // Update session context on navigation
+            Sentry.configureScope(function(scope) {
+              scope.setContext("page", {
+                type: "navigation",
+                url: window.location.href,
+                title: document.title,
+                referrer: document.referrer || null,
+                timestamp: Date.now()
+              });
+            });
+
+            // Track navigation as breadcrumb
+            Sentry.addBreadcrumb({
+              category: 'navigation',
+              message: `Navigated to ${window.location.pathname}`,
+              level: 'info',
+              data: {
+                from: document.referrer || 'direct',
+                to: window.location.href
+              }
+            });
+          }
+        }
+
+        // Monitor for navigation changes (SPA routing)
+        window.addEventListener('popstate', trackPageNavigation);
+        
+        // Monitor for performance issues
+        if ('PerformanceObserver' in window) {
+          const observer = new PerformanceObserver((list) => {
+            list.getEntries().forEach((entry) => {
+              if (entry.entryType === 'navigation') {
+                Sentry.addBreadcrumb({
+                  category: 'performance',
+                  message: 'Page load metrics',
+                  level: 'info',
+                  data: {
+                    domContentLoaded: entry.domContentLoadedEventEnd - entry.domContentLoadedEventStart,
+                    loadComplete: entry.loadEventEnd - entry.loadEventStart,
+                    firstPaint: entry.responseEnd - entry.requestStart
+                  }
+                });
+              }
+            });
           });
-          scope.setContext("shop", {
-            name: "{{ shop.name | escape }}",
-            domain: "{{ shop.permanent_domain }}",
-            currency: "{{ shop.currency }}"
+          observer.observe({entryTypes: ['navigation']});
+        }
+
+        // Track e-commerce events for better context
+        window.TPS.trackEvent = function(eventName, data) {
+          Sentry.addBreadcrumb({
+            category: 'ecommerce',
+            message: eventName,
+            level: 'info',
+            data: data || {},
+            timestamp: Date.now() / 1000
           });
-        });
+        };
+
+        console.log('[TPS-STAR] Sentry Release Health initialized');
+      }
 
         console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
       });
