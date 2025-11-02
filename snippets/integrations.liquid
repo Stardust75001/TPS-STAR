@@ -18,32 +18,32 @@
 {%- liquid
   assign integ = shop.metafields.custom_integrations
 
-  comment 'TPS-STAR Metafields - Matching Shopify Admin Configuration'
-  comment 'Core analytics platforms currently configured'
-  assign ga4_token = integ.GA4_Token | strip
-  assign meta_pixel_id = integ.Meta_Pixel_ID | strip
-  assign sentry_dsn = integ.Sentry_DSN | strip
-  assign cloudflare_beacon_token = integ.Cloudflare_Token | strip
-  assign slack_webhook_url = integ.Slack_Webhook_URL | strip
-  assign ahrefs_api_key = integ.AHREFS_API_KEY | strip
-  assign domain_principal = integ.Domaine_principal | strip
+  comment 'TPS-STAR Metafields - Robust key handling (lowercase first, CamelCase fallback)'
+  comment 'Core analytics platforms - Shopify standard lowercase keys'
+  assign ga4_token              = integ.ga4_token              | default: integ.GA4_Token              | strip
+  assign meta_pixel_id          = integ.meta_pixel_id          | default: integ.Meta_Pixel_ID           | strip
+  assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | strip
+  assign cloudflare_beacon_token= integ.cloudflare_beacon_token| default: integ.Cloudflare_Token        | strip
+  assign slack_webhook_url      = integ.slack_webhook_url      | default: integ.Slack_Webhook_URL       | strip
+  assign ahrefs_api_key         = integ.ahrefs_api_key         | default: integ.AHREFS_API_KEY          | strip
+  assign domain_principal       = integ.domain                 | default: integ.Domaine_principal       | strip
 
   comment 'FREE Analytics Platforms - Zero Cost, Maximum Value'
-  assign clarity_id = integ.Clarity_ID | strip
-  assign hotjar_id = integ.Hotjar_ID | strip
-  assign amplitude_key = integ.Amplitude_Key | strip
+  assign clarity_id             = integ.clarity_id             | default: integ.Clarity_ID              | strip
+  assign hotjar_id              = integ.hotjar_id              | default: integ.Hotjar_ID               | strip
+  assign amplitude_key          = integ.amplitude_key          | default: integ.Amplitude_Key           | strip
 
   comment 'Extended tracking platforms (add as needed)'
-  assign gtm_id = integ.gtm_id | strip
-  assign tiktok_pixel = integ.tiktok_pixel | strip
-  assign snapchat_pixel = integ.snapchat_pixel | strip
-  assign pinterest_tag = integ.pinterest_tag | strip
-  assign mixpanel_token = integ.mixpanel_token | strip
-  assign shopify_pixel = integ.shopify_pixel | strip
+  assign gtm_id                 = integ.gtm_id                 | strip
+  assign tiktok_pixel           = integ.tiktok_pixel           | strip
+  assign snapchat_pixel         = integ.snapchat_pixel         | strip
+  assign pinterest_tag          = integ.pinterest_tag          | strip
+  assign mixpanel_token         = integ.mixpanel_token         | strip
+  assign shopify_pixel          = integ.shopify_pixel          | strip
 
   comment 'Verification meta tags - likely stored separately'
-  assign gsc_verification = integ.gsc_verification | strip
-  assign ahrefs_verification = integ.ahrefs_verification | strip
+  assign gsc_verification       = integ.gsc_verification       | strip
+  assign ahrefs_verification    = integ.ahrefs_verification    | strip
 -%}
 
 {%- comment -%} ───────── Meta Verification Tags ───────── {%- endcomment -%}
@@ -130,11 +130,14 @@
     // === SENTRY ===
     if (cfg.sentry_dsn) {
       loadScript('https://browser.sentry-cdn.com/8.36.0/bundle.tracing.replay.min.js', 'sentry-sdk')
-      .then(() => {
+      .then(function(){
+        // eslint-disable-next-line no-undef
         Sentry.init({
           dsn: cfg.sentry_dsn,
           integrations: [
+            // eslint-disable-next-line no-undef
             Sentry.browserTracingIntegration(),
+            // eslint-disable-next-line no-undef
             Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })
           ],
           tracesSampleRate: 1.0,
@@ -142,8 +145,6 @@
           replaysOnErrorSampleRate: 1.0,
           environment: "{{ request.locale.iso_code | upcase }}",
           release: "tps-star@{{ 'now' | date: '%Y-%m-%d' }}",
-
-          // === RELEASE HEALTH CONFIGURATION ===
           autoSessionTracking: true,
           initialScope: {
             tags: {
@@ -156,99 +157,13 @@
             user: {
               id: "{{ customer.id | default: 'anonymous' }}",
               email: "{{ customer.email | default: null }}"
-            },
-            contexts: {
-              "page": {
-                "type": "{{ request.page_type }}",
-                "url": "{{ canonical_url }}",
-                "title": "{{ page_title | escape }}",
-                "referrer": document.referrer || null
-              },
-              "shop": {
-                "name": "{{ shop.name | escape }}",
-                "domain": "{{ shop.permanent_domain }}",
-                "currency": "{{ shop.currency }}",
-                "locale": "{{ request.locale.iso_code }}"
-              },
-              "session": {
-                "page_load_time": Date.now(),
-                "user_agent": navigator.userAgent,
-                "viewport": window.innerWidth + "x" + window.innerHeight
-              }
             }
           }
         });
-
-        // === RELEASE HEALTH & SESSION TRACKING ===
-        // Track page navigation for SPA-like behavior
-        let currentPath = window.location.pathname;
-        function trackPageNavigation() {
-          if (window.location.pathname !== currentPath) {
-            currentPath = window.location.pathname;
-
-            // Update session context on navigation
-            Sentry.configureScope(function(scope) {
-              scope.setContext("page", {
-                type: "navigation",
-                url: window.location.href,
-                title: document.title,
-                referrer: document.referrer || null,
-                timestamp: Date.now()
-              });
-            });
-
-            // Track navigation as breadcrumb
-            Sentry.addBreadcrumb({
-              category: 'navigation',
-              message: `Navigated to ${window.location.pathname}`,
-              level: 'info',
-              data: {
-                from: document.referrer || 'direct',
-                to: window.location.href
-              }
-            });
-          }
-        }
-
-        // Monitor for navigation changes (SPA routing)
-        window.addEventListener('popstate', trackPageNavigation);
-
-        // Monitor for performance issues
-        if ('PerformanceObserver' in window) {
-          const observer = new PerformanceObserver((list) => {
-            list.getEntries().forEach((entry) => {
-              if (entry.entryType === 'navigation') {
-                Sentry.addBreadcrumb({
-                  category: 'performance',
-                  message: 'Page load metrics',
-                  level: 'info',
-                  data: {
-                    domContentLoaded: entry.domContentLoadedEventEnd - entry.domContentLoadedEventStart,
-                    loadComplete: entry.loadEventEnd - entry.loadEventStart,
-                    firstPaint: entry.responseEnd - entry.requestStart
-                  }
-                });
-              }
-            });
-          });
-          observer.observe({entryTypes: ['navigation']});
-        }
-
-        // Track e-commerce events for better context
-        window.TPS.trackEvent = function(eventName, data) {
-          Sentry.addBreadcrumb({
-            category: 'ecommerce',
-            message: eventName,
-            level: 'info',
-            data: data || {},
-            timestamp: Date.now() / 1000
-          });
-        };
-
-        console.log('[TPS-STAR] Sentry Release Health initialized');
-        console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
-      }).catch(() => {
-        console.warn('[TPS] Sentry load failed');
+        console.log('[TPS-STAR] Sentry initialized');
+      })
+      .catch(function(){
+        console.warn('[TPS] Sentry SDK load failed');
       });
     }
 
@@ -338,7 +253,7 @@
 
     // === AMPLITUDE (FREE 10M Events/Month) ===
     if (cfg.amplitude_key) {
-      (function(e,t){var n=e.amplitude||{_q:[],_iq:{}};var r=t.createElement("script");r.type="text/javascript";r.integrity="sha384-d/yhnowERvm+7eCU79T/bYjOiMmq4F11ElWYLmt0ktvYEVgqLDazh4/rt5F/4JP2";r.crossOrigin="anonymous";r.async=true;r.src="https://cdn.amplitude.com/libs/amplitude-8.21.9-min.gz.js";r.onload=function(){if(!e.amplitude.runQueuedFunctions){console.log("[Amplitude] Error: could not load SDK")}};var i=t.getElementsByTagName("script")[0];i.parentNode.insertBefore(r,i);function s(e,t){e.prototype[t]=function(){this._q.push([t].concat(Array.prototype.slice.call(arguments,0)));return this}}var o=function(){this._q=[];return this};var a=["add","append","clearAll","prepend","set","setOnce","unset","preInsert","postInsert","remove"];for(var c=0;c<a.length;c++){s(o,a[c])}n.Identify=o;var u=function(){this._q=[];return this};var l=["setProductId","setQuantity","setPrice","setRevenueType","setEventProperties"];for(var p=0;p<l.length;p++){s(u,l[p])}n.Revenue=u;var d=["init","logEvent","logRevenue","setUserId","setUserProperties","setOptOut","setVersionName","setDomain","setDeviceId","enableTracking","setGlobalUserProperties","identify","clearUserProperties","setGroup","logRevenueV2","regenerateDeviceId","groupIdentify","onInit","logEventWithTimestamp","logEventWithGroups","setSessionId","resetSessionId"];function v(e){function t(t){e[t]=function(){e._q.push([t].concat(Array.prototype.slice.call(arguments,0)))}}for(var n=0;n<d.length;n++){t(d[n])}}v(n);n.getInstance=function(e){e=(!e||e.length===0?"$default_instance":e).toLowerCase();if(!Object.prototype.hasOwnProperty.call(n._iq,e)){n._iq[e]={_q:[]};v(n._iq[e])}return n._iq[e]};e.amplitude=n})(window,document);
+      (function(e,t){var n=e.amplitude||{_q:[],_iq:{}};var r=t.createElement("script");r.type="text/javascript";r.async=true;r.src="https://cdn.amplitude.com/libs/amplitude-8.21.9-min.gz.js";r.onload=function(){if(!e.amplitude.runQueuedFunctions){console.log("[Amplitude] Error: could not load SDK")}};var i=t.getElementsByTagName("script")[0];i.parentNode.insertBefore(r,i);function s(e,t){e.prototype[t]=function(){this._q.push([t].concat(Array.prototype.slice.call(arguments,0)));return this}}var o=function(){this._q=[];return this};var a=["add","append","clearAll","prepend","set","setOnce","unset","preInsert","postInsert","remove"];for(var c=0;c<a.length;c++){s(o,a[c])}n.Identify=o;var u=function(){this._q=[];return this};var l=["setProductId","setQuantity","setPrice","setRevenueType","setEventProperties"];for(var p=0;p<l.length;p++){s(u,l[p])}n.Revenue=u;var d=["init","logEvent","logRevenue","setUserId","setUserProperties","setOptOut","setVersionName","setDomain","setDeviceId","enableTracking","setGlobalUserProperties","identify","clearUserProperties","setGroup","logRevenueV2","regenerateDeviceId","groupIdentify","onInit","logEventWithTimestamp","logEventWithGroups","setSessionId","resetSessionId"];function v(e){function t(t){e[t]=function(){e._q.push([t].concat(Array.prototype.slice.call(arguments,0)))}}for(var n=0;n<d.length;n++){t(d[n])}}v(n);n.getInstance=function(e){e=(!e||e.length===0?"$default_instance":e).toLowerCase();if(!Object.prototype.hasOwnProperty.call(n._iq,e)){n._iq[e]={_q:[]};v(n._iq[e])}return n._iq[e]};e.amplitude=n})(window,document);
 
       amplitude.getInstance().init(cfg.amplitude_key, null, {
         includeUtm: true,
