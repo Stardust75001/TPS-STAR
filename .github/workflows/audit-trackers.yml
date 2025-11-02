@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           page="out/fetched.html"
 
+          # Helpers
           ok(){ echo "ok"; }
           ko(){ echo "missing"; }
 
@@ -93,11 +94,22 @@ jobs:
             grep -q "cloudflareinsights.com/beacon.min.js" "$page" && CF_STATUS=$(ok) || CF_STATUS=$(ko)
           fi
 
-          # --- Sentry ---
+          # --- Sentry (Enhanced with Release Health checks) ---
           if [ -n "${EXPECT_SENTRY_DSN:-}" ]; then
-            grep -q "${EXPECT_SENTRY_DSN}" "$page" && SENTRY_STATUS=$(ok) || SENTRY_STATUS=$(ko)
+            if grep -q "${EXPECT_SENTRY_DSN}" "$page" && \
+               grep -q "autoSessionTracking.*true" "$page" && \
+               grep -q "release.*tps-star@" "$page"; then
+              SENTRY_STATUS=$(ok)
+            else
+              SENTRY_STATUS=$(ko)
+            fi
           else
-            grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && SENTRY_STATUS=$(ok) || SENTRY_STATUS=$(ko)
+            if grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && \
+               grep -q "autoSessionTracking" "$page"; then
+              SENTRY_STATUS=$(ok)
+            else
+              SENTRY_STATUS=$(ko)
+            fi
           fi
 
           # Expose outputs
@@ -270,7 +282,7 @@ jobs:
           </html>
           CSSHTML
 
-          # Injecte les données collectées dans le template
+          # Construit le JSON pour le script
           jq_available=0
           command -v jq >/dev/null && jq_available=1
 

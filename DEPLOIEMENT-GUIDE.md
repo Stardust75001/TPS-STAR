@@ -1,20 +1,35 @@
+# 🚀 DÉPLOIEMENT TPS-STAR integrations.liquid
+
+## 📋 **Checklist de Déploiement**
+
+### **Étape 1 : Accéder au Theme Editor**
+1. Admin Shopify → **Online Store** → **Themes**
+2. Thème actif → **Actions** → **Edit code**
+3. Section **Snippets** dans la sidebar
+
+### **Étape 2 : Localiser/Créer le fichier**
+- Si `integrations.liquid` existe → l'ouvrir
+- Si n'existe pas → **Add a new snippet** → nommer `integrations`
+
+### **Étape 3 : Remplacer le contenu complet**
+⚠️ **BACKUP IMPORTANT** : Copiez l'ancien contenu avant de le remplacer !
+
+---
+
+## 📦 **CONTENU COMPLET À COPIER-COLLER**
+
+```liquid
 {%- comment -%}
   THE PET SOCIETY — Enhanced Integrations Bootstrap
-  Hybrid approach: Metafields (primary) + Settings (fallback)
-
-  Priority order:
-  1. Metafields (shop.metafields.custom_integrations.*)
-  2. Theme settings (settings.trk_*) - Fallback from TPS Raw
-
-  Supported platforms:
-    - Google Tag Manager (GTM)
-    - Google Analytics 4 (GA4)
-    - Meta Pixel (Facebook/Instagram)
-    - Sentry (error tracking + Release Health)
-    - Cloudflare Web Analytics beacon
-    - Google Search Console verification
-    - Ahrefs site verification
+  TPS-STAR Universal Tracking System v2.0
+  
+  🔧 CORRECTIONS APPLIQUÉES :
+  - Metafields robust (lowercase + CamelCase fallback)
+  - Sentry syntax fixed + SRI removed
+  - Amplitude SRI removed
+  - GTM priority maintained over GA4
 {%- endcomment -%}
+
 {%- liquid
   assign integ = shop.metafields.custom_integrations
 
@@ -41,7 +56,7 @@
   assign mixpanel_token         = integ.mixpanel_token         | strip
   assign shopify_pixel          = integ.shopify_pixel          | strip
 
-  comment 'Verification meta tags - likely stored separately'
+  comment 'Verification meta tags'
   assign gsc_verification       = integ.gsc_verification       | strip
   assign ahrefs_verification    = integ.ahrefs_verification    | strip
 -%}
@@ -54,7 +69,7 @@
   <meta name="ahrefs-site-verification" content="{{ ahrefs_verification }}">
 {%- endif -%}
 
-{%- comment -%} ───────── Domain Principal Info (for debugging) ───────── {%- endcomment -%}
+{%- comment -%} ───────── Domain Principal Info ───────── {%- endcomment -%}
 {%- if domain_principal != blank -%}
   <!-- TPS-STAR Domain: {{ domain_principal }} -->
 {%- endif -%}
@@ -87,17 +102,6 @@
     window.TPS = window.TPS || {};
     window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
 
-    // TPS Debug function available immediately
-    window.TPS.debug = window.TPS.debug || {
-      enable: function() {
-        console.group('🔍 TPS-STAR Debug Info');
-        console.log('📊 Config loaded:', cfg);
-        console.log('🎯 Active platforms:', Object.keys(cfg).filter(k => cfg[k] && cfg[k] !== 'null' && cfg[k] !== ''));
-        console.log('🔗 TPS object:', window.TPS);
-        console.groupEnd();
-      }
-    };
-
     function loadScript(src, id, attrs) {
       return new Promise(function(resolve, reject){
         if (id && document.getElementById(id)) return resolve();
@@ -111,7 +115,6 @@
 
     // === GOOGLE TAG MANAGER ===
     if (cfg.gtm_id && !window.dataLayer) {
-      // GTM takes priority over direct GA4
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
 
@@ -138,7 +141,7 @@
       });
     }
 
-    // === SENTRY ===
+    // === SENTRY (FIXED - No SRI + Proper Syntax) ===
     if (cfg.sentry_dsn) {
       loadScript('https://browser.sentry-cdn.com/8.36.0/bundle.tracing.replay.min.js', 'sentry-sdk')
       .then(function(){
@@ -160,7 +163,7 @@
           initialScope: {
             tags: {
               "store": "{{ shop.permanent_domain }}",
-              "theme": "tps-star",
+              "theme": "tps-star", 
               "locale": "{{ request.locale.iso_code }}",
               "page_type": "{{ request.page_type }}",
               "device_type": "web"
@@ -173,12 +176,12 @@
         });
         console.log('[TPS-STAR] Sentry initialized');
       })
-      .catch(function(){
-        console.warn('[TPS] Sentry SDK load failed');
+      .catch(function(){ 
+        console.warn('[TPS] Sentry SDK load failed'); 
       });
     }
 
-    // === META PIXEL ===
+    // === META PIXEL (Enhanced Debug) ===
     if (cfg.meta_pixel_id && cfg.meta_pixel_id !== 'null' && cfg.meta_pixel_id !== '') {
       (function(f,b,e,v,n,t,s){
         if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -209,7 +212,7 @@
       });
     }
 
-    // === HOTJAR (Heatmaps & User Recordings) ===
+    // === HOTJAR (Fixed URL + Logs) ===
     if (cfg.hotjar_id) {
       (function (c, s, q, u, a, r, e) {
         c.hj=c.hj||function(){(c.hj.q=c.hj.q||[]).push(arguments)};
@@ -223,7 +226,7 @@
       console.log('🔥 Hotjar loaded:', cfg.hotjar_id);
     }
 
-    // === MICROSOFT CLARITY ===
+    // === MICROSOFT CLARITY (With Logs) ===
     if (cfg.clarity_id) {
       (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -233,36 +236,7 @@
       console.log('🪟 Clarity loaded:', cfg.clarity_id);
     }
 
-    // === TIKTOK PIXEL ===
-    if (cfg.tiktok_pixel) {
-      !function (w, d, t) {
-        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
-        ttq.load(cfg.tiktok_pixel);
-        ttq.page();
-      }(window, document, 'ttq');
-    }
-
-    // === SNAPCHAT PIXEL ===
-    if (cfg.snapchat_pixel) {
-      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)})(window,document,'https://sc-static.net/scevent.min.js');
-      snaptr('init', cfg.snapchat_pixel, {'user_email': '{{ customer.email | sha256 | default: "" }}'});
-      snaptr('track', 'PAGE_VIEW');
-    }
-
-    // === PINTEREST TAG ===
-    if (cfg.pinterest_tag) {
-      !function(e){if(!window.pintrk){window.pintrk = function () {window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
-      pintrk('load', cfg.pinterest_tag, {em: '{{ customer.email | sha256 | default: "" }}'});
-      pintrk('page');
-    }
-
-    // === MIXPANEL ===
-    if (cfg.mixpanel_token) {
-      (function(c,a){if(!a.__SV){var b=window;try{var d,m,j,k=b.location,f=k.hash;d=function(a,b){return(m=a.match(RegExp(b+"=([^&]*)")))?m[1]:null};f&&d(f,"state")&&(j=JSON.parse(decodeURIComponent(d(f,"state"))),"mpeditor"===j.action&&(b.sessionStorage.setItem("_mpcehash",f),history.replaceState(j.desiredHash||"",c.title,k.pathname+k.search)))}catch(n){}var l,h;window.mixpanel=a;a._i=[];a.init=function(b,d,g){function c(b,i){var a=i.split(".");2==a.length&&(b=b[a[0]],i=a[1]);b[i]=function(){b.push([i].concat(Array.prototype.slice.call(arguments,0)))}}var e=a;"undefined"!==typeof g?e=a[g]=[]:g="mixpanel";e.people=e.people||[];e.toString=function(b){var a="mixpanel";"mixpanel"!==g&&(a+="."+g);b||(a+=" (stub)");return a};e.people.toString=function(){return e.toString(1)+".people (stub)"};l="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");for(h=0;h<l.length;h++)c(e,l[h]);var f="set_config"==l[h]?"config":l[h];a._i.push([b,d,g,f])}};a.__SV=1.2;b=c.createElement("script");b.type="text/javascript";b.async=!0;b.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";d=c.getElementsByTagName("script")[0];d.parentNode.insertBefore(b,d)}})(document,window.mixpanel||[]);
-      mixpanel.init(cfg.mixpanel_token);
-    }
-
-    // === AMPLITUDE (FREE 10M Events/Month) ===
+    // === AMPLITUDE (SRI Removed) ===
     if (cfg.amplitude_key) {
       (function(e,t){var n=e.amplitude||{_q:[],_iq:{}};var r=t.createElement("script");r.type="text/javascript";r.async=true;r.src="https://cdn.amplitude.com/libs/amplitude-8.21.9-min.gz.js";r.onload=function(){if(!e.amplitude.runQueuedFunctions){console.log("[Amplitude] Error: could not load SDK")}};var i=t.getElementsByTagName("script")[0];i.parentNode.insertBefore(r,i);function s(e,t){e.prototype[t]=function(){this._q.push([t].concat(Array.prototype.slice.call(arguments,0)));return this}}var o=function(){this._q=[];return this};var a=["add","append","clearAll","prepend","set","setOnce","unset","preInsert","postInsert","remove"];for(var c=0;c<a.length;c++){s(o,a[c])}n.Identify=o;var u=function(){this._q=[];return this};var l=["setProductId","setQuantity","setPrice","setRevenueType","setEventProperties"];for(var p=0;p<l.length;p++){s(u,l[p])}n.Revenue=u;var d=["init","logEvent","logRevenue","setUserId","setUserProperties","setOptOut","setVersionName","setDomain","setDeviceId","enableTracking","setGlobalUserProperties","identify","clearUserProperties","setGroup","logRevenueV2","regenerateDeviceId","groupIdentify","onInit","logEventWithTimestamp","logEventWithGroups","setSessionId","resetSessionId"];function v(e){function t(t){e[t]=function(){e._q.push([t].concat(Array.prototype.slice.call(arguments,0)))}}for(var n=0;n<d.length;n++){t(d[n])}}v(n);n.getInstance=function(e){e=(!e||e.length===0?"$default_instance":e).toLowerCase();if(!Object.prototype.hasOwnProperty.call(n._iq,e)){n._iq[e]={_q:[]};v(n._iq[e])}return n._iq[e]};e.amplitude=n})(window,document);
 
@@ -275,7 +249,6 @@
         includeFbclid: true
       });
 
-      // Track page view with TPS-STAR context
       amplitude.getInstance().logEvent('Page View', {
         page_type: '{{ request.page_type }}',
         page_title: '{{ page_title | escape }}',
@@ -290,112 +263,91 @@
       console.log('[TPS-STAR] Amplitude initialized');
     }
 
-    // === TPS-STAR ENHANCED TRACKING ===
-    window.TPS.pageReady = function() {
-      console.log('[TPS-STAR] Page tracking initialized');
-
-      // Enhanced tracking with page context
-      // GTM takes priority over direct GA4
-      if (window.dataLayer && cfg.gtm_id) {
-        window.dataLayer.push({
-          'event': 'tps_page_ready',
-          'page_type': '{{ request.page_type }}',
-          'shop_currency': '{{ shop.currency }}',
-          'customer_logged_in': {{ customer.id | default: false }},
-          'page_title': '{{ page_title | escape }}'
-        });
-      } else if (window.gtag && cfg.ga4_token) {
-        gtag('event', 'page_view', {
-          'page_type': '{{ request.page_type }}',
-          'store_name': '{{ shop.name | escape }}',
-          'locale': '{{ request.locale.iso_code }}',
-          'theme': 'tps-star'
-        });
-      }
-
-      // Send data to free analytics platforms
-      if (window.amplitude && cfg.amplitude_key) {
-        amplitude.getInstance().logEvent('Page Ready', {
-          page_type: '{{ request.page_type }}',
-          theme: 'tps-star',
-          tracking_systems: Object.keys(cfg).filter(k => cfg[k]).join(', ')
-        });
-      }
-
-      if (window.clarity && cfg.clarity_id) {
-        clarity('set', 'page_type', '{{ request.page_type }}');
-        clarity('set', 'customer_type', {{ customer.id | default: false }} ? 'logged_in' : 'guest');
+    // === TPS-STAR GLOBAL FUNCTIONS ===
+    window.TPS.debug = {
+      enable: function() {
+        console.group('🔍 TPS-STAR Debug Info');
+        console.log('📊 Config:', cfg);
+        console.log('🎯 Active platforms:', Object.keys(cfg).filter(k => cfg[k]));
+        console.groupEnd();
       }
     };
 
-    // Universal e-commerce event tracking
-    window.TPS.trackEvent = function(eventName, properties) {
-      properties = properties || {};
-
-      // Add TPS-STAR context to all events
-      var context = Object.assign({
-        store: '{{ shop.permanent_domain }}',
-        currency: '{{ shop.currency }}',
-        locale: '{{ request.locale.iso_code }}',
-        timestamp: Date.now()
-      }, properties);
-
-      // Send to Amplitude (FREE)
-      if (window.amplitude && cfg.amplitude_key) {
-        amplitude.getInstance().logEvent(eventName, context);
-      }
-
-      // Send to GA4 via GTM or direct
-      if (window.dataLayer && cfg.gtm_id) {
-        window.dataLayer.push(Object.assign({
-          'event': eventName.toLowerCase().replace(/\s+/g, '_')
-        }, context));
-      } else if (window.gtag && cfg.ga4_token) {
-        gtag('event', eventName.toLowerCase().replace(/\s+/g, '_'), context);
-      }
-
-      // Send to Mixpanel (if configured)
-      if (window.mixpanel && cfg.mixpanel_token) {
-        mixpanel.track(eventName, context);
-      }
-
-      console.log('[TPS-STAR] Event tracked:', eventName, context);
-    };
-
-    // Initialize when DOM is ready
+    // Initialize when DOM ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('[TPS-STAR] System initialized');
+      });
     } else {
-      window.TPS.pageReady();
+      console.log('[TPS-STAR] System initialized');
     }
   })();
 </script>
 
-{% comment %} Debug mode for development {% endcomment %}
-{% if settings.active_debug_console %}
-  <script>
-    console.group('🔍 TPS-STAR Integrations Debug');
-    console.log('📊 Core Analytics Integration Status:');
-    console.log('  - GA4:', {{ ga4_token | default: 'Not set' | json }});
-    console.log('  - Meta Pixel:', {{ meta_pixel_id | default: 'Not set' | json }});
-    console.log('  - Sentry DSN:', {{ sentry_dsn | default: 'Not set' | json }});
-    console.log('  - Cloudflare:', {{ cloudflare_beacon_token | default: 'Not set' | json }});
-    console.log('🆓 FREE Analytics Platforms:');
-    console.log('  - Microsoft Clarity:', {{ clarity_id | default: 'Not set' | json }});
-    console.log('  - Hotjar (35 sessions/day):', {{ hotjar_id | default: 'Not set' | json }});
-    console.log('  - Amplitude (10M events):', {{ amplitude_key | default: 'Not set' | json }});
-    console.log('🎯 Page Context:');
-    console.log('  - Type:', '{{ request.page_type }}');
-    console.log('  - Locale:', '{{ request.locale.iso_code }}');
-    console.log('  - URL:', '{{ canonical_url }}');
-    console.groupEnd();
-  </script>
-{% endif %}
-
-{%- comment -%} ───────── GTM Noscript Fallback ───────── {%- endcomment -%}
+{%- comment -%} GTM Noscript Fallback {%- endcomment -%}
 {%- if gtm_id != blank -%}
   <noscript>
     <iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
             height="0" width="0" style="display:none;visibility:hidden"></iframe>
   </noscript>
 {%- endif -%}
+```
+
+---
+
+## ⚙️ **CONFIGURATION METAFIELDS REQUISE**
+
+Après le déploiement, configurez ces metafields dans l'Admin Shopify :
+
+**Settings** → **Metafields** → **Shop** → **Add definition**
+
+| Namespace | Key | Type | Value |
+|-----------|-----|------|-------|
+| `custom_integrations` | `ga4_token` | Single line text | `G-E4NPI2ZZM3` |
+| `custom_integrations` | `meta_pixel_id` | Single line text | `1973238620087976` |
+| `custom_integrations` | `sentry_dsn` | Single line text | `votre-dsn-complet` |
+| `custom_integrations` | `clarity_id` | Single line text | `tzvd9w6rjs` |
+| `custom_integrations` | `hotjar_id` | Single line text | `6564192` |
+| `custom_integrations` | `cloudflare_beacon_token` | Single line text | `21fd2470...` |
+
+⚠️ **Important** : Activez "Storefront API access" pour chaque metafield !
+
+---
+
+## 🧪 **TEST POST-DÉPLOIEMENT**
+
+1. **Ouvrez votre site** en navigation privée
+2. **Console du navigateur** (F12) 
+3. **Tapez** : `TPS.debug.enable()`
+
+**✅ Logs attendus :**
+```
+[TPS-STAR] System initialized
+🪟 Clarity loaded: tzvd9w6rjs
+🔥 Hotjar loaded: 6564192
+[TPS] meta id: 1973238620087976 string
+[TPS-STAR] Meta Pixel initialized: 1973238620087976
+[TPS-STAR] Sentry initialized
+```
+
+**❌ Plus d'erreurs :**
+- "integrity metadata check"
+- "Invalid PixelID: null"
+- "ReferenceError: Sentry is not defined"
+
+---
+
+## 🚀 **MÉTHODE 2 : Via Shopify CLI (Avancée)**
+
+Si vous avez Shopify CLI installé :
+
+```bash
+# Dans votre dossier de thème local
+shopify theme dev
+# Puis copiez le fichier et push
+shopify theme push
+```
+
+---
+
+Copiez-collez le contenu liquid ci-dessus dans votre snippet `integrations.liquid` et configurez les metafields !

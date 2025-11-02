@@ -1,69 +1,86 @@
-# ============================================================
-# 🦅 THE PET SOCIETY — TPS-STAR WORKTREE MAKEFILE
-# Centralisation des commandes locales (pyenv, Shopify, CI)
-# ============================================================
+# TPS-STAR Makefile - Management des workflows et audits
+# Automatisation des tâches de développement et d'audit
 
-PYENV = tps-star-3119
+.PHONY: audit test deploy clean setup
 
-# --- Environnement Python ---
-env:
-	@echo "📦 Activation pyenv ($(PYENV))..."
-	@export PYENV_VERSION=$(PYENV)
-	@python -V
-	@which python
-	@echo "✅ $(PYENV) prêt."
-
-# --- Vérification des dépendances ---
-check:
-	@echo "🔍 Vérification outils installés..."
-	@command -v pyenv >/dev/null && echo "✔️ pyenv ok" || echo "❌ pyenv manquant"
-	@command -v shopify >/dev/null && echo "✔️ shopify CLI ok" || echo "⚠️ shopify CLI manquant"
-	@command -v gh >/dev/null && echo "✔️ GitHub CLI ok" || echo "⚠️ gh CLI manquant"
-	@command -v jq >/dev/null && echo "✔️ jq ok" || echo "⚠️ jq manquant"
-
-# --- Qualité de code ---
-lint:
-	@echo "🧹 Analyse Python..."
-	@export PYENV_VERSION=$(PYENV)
-	@ruff check scripts/ || true
-
-# --- Tests ---
-test:
-	@echo "🧪 Lancement des tests..."
-	@export PYENV_VERSION=$(PYENV)
-	@pytest -q || echo "⚠️ Aucune suite de tests."
-
-# --- Backups Shopify ---
-backup:
-	@echo "💾 Backup complet du thème Shopify..."
-	@bash scripts/backup-top.sh
-
-# --- Workflows GitHub ---
-release:
-	@echo "🚀 Déclenchement workflow : Sentry Release & Deploy"
-	@gh workflow run "🧩 Sentry Release & Deploy"
-
-seo:
-	@echo "🔎 Déclenchement workflow : SEO Checks (Ahrefs v3)"
-	@gh workflow run "🔎 SEO Checks (Ahrefs v3)"
-
+# === AUDIT ET VALIDATION ===
 audit:
-	@echo "📊 Déclenchement workflow : Audit Trackers"
-	@gh workflow run "🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)"
+	@echo "🔎 Lancement de l'audit des trackers TPS-STAR..."
+	@gh workflow run "🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)" -f path="/"
+	@echo "✅ Workflow lancé. Ouvre l'onglet Actions du repo pour voir les résultats."
+	@echo "📊 Tableaux de bord à vérifier :"
+	@echo "   - GA4: https://analytics.google.com/"
+	@echo "   - Meta Business: https://business.facebook.com/events_manager"
+	@echo "   - Microsoft Clarity: https://clarity.microsoft.com/"
+	@echo "   - Hotjar: https://insights.hotjar.com/"
+	@echo "   - Sentry: https://sentry.io/"
 
-# --- Aide ---
+# === TESTS LOCAUX ===
+test:
+	@echo "🧪 Tests locaux TPS-STAR..."
+	@if [ -f "./test-clarity-integration.sh" ]; then \
+		chmod +x ./test-clarity-integration.sh && ./test-clarity-integration.sh; \
+	else \
+		echo "❌ Fichier test-clarity-integration.sh non trouvé"; \
+	fi
+	@if [ -f "./validate_credentials.py" ]; then \
+		python3 ./validate_credentials.py; \
+	else \
+		echo "❌ Fichier validate_credentials.py non trouvé"; \
+	fi
+
+# === GÉNÉRATION DE RAPPORTS ===
+report:
+	@echo "📋 Génération du rapport PDF TPS-STAR..."
+	@if [ -f "./generate_pdf.sh" ]; then \
+		chmod +x ./generate_pdf.sh && ./generate_pdf.sh; \
+	else \
+		echo "❌ Générateur PDF non trouvé"; \
+	fi
+
+# === SETUP ET CONFIGURATION ===
+setup:
+	@echo "⚙️ Configuration initiale TPS-STAR..."
+	@if [ -f "./setup_credentials.sh" ]; then \
+		chmod +x ./setup_credentials.sh && ./setup_credentials.sh; \
+	else \
+		echo "❌ Script de setup non trouvé"; \
+	fi
+	@echo "📝 Vérifiez les metafields Shopify (namespace: custom_integrations)"
+
+# === DÉPLOIEMENT ===
+deploy:
+	@echo "🚀 Déploiement des fichiers vers Shopify..."
+	@echo "⚠️  Assurez-vous que Shopify CLI est configuré"
+	@echo "📁 Fichiers à déployer :"
+	@echo "   - snippets/integrations.liquid"
+	@echo "   - snippets/tracking-analytics.liquid"
+	@echo "   - assets/tps-tracking.js"
+	@echo "   - layout/theme.liquid"
+
+# === NETTOYAGE ===
+clean:
+	@echo "🧹 Nettoyage des fichiers temporaires..."
+	@rm -f *.tmp *.log
+	@rm -rf __pycache__/
+	@echo "✅ Nettoyage terminé"
+
+# === AIDE ===
 help:
+	@echo "📚 TPS-STAR Makefile - Commandes disponibles :"
 	@echo ""
-	@echo "🦅 COMMANDES DISPONIBLES"
-	@echo "-------------------------"
-	@echo "make env       → Active l'environnement pyenv local"
-	@echo "make check     → Vérifie les outils essentiels"
-	@echo "make lint      → Analyse syntaxique (ruff)"
-	@echo "make test      → Lancement des tests Python"
-	@echo "make backup    → Sauvegarde complète du thème Shopify"
-	@echo "make release   → Déploie release Sentry"
-	@echo "make seo       → Lancement audit SEO (Ahrefs v3)"
-	@echo "make audit     → Lancement audit trackers GA4/Meta/Sentry"
+	@echo "  make audit    - Lance l'audit complet des trackers"
+	@echo "  make test     - Execute les tests locaux"
+	@echo "  make report   - Génère le rapport PDF"
+	@echo "  make setup    - Configuration initiale"
+	@echo "  make deploy   - Guide de déploiement"
+	@echo "  make clean    - Nettoie les fichiers temporaires"
+	@echo "  make help     - Affiche cette aide"
 	@echo ""
+	@echo "🔗 Liens utiles :"
+	@echo "   - Repo: https://github.com/Stardust75001/TPS-STAR"
+	@echo "   - Docs: ./docs/"
+	@echo "   - Tests: ./test-*.html"
 
-.PHONY: env check lint test backup release seo audit help
+# Par défaut, afficher l'aide
+.DEFAULT_GOAL := help
