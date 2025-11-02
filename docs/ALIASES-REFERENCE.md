@@ -1,5 +1,5 @@
 # 🧠 TPS — Aliases ZSH (Référence)
-_Généré automatiquement le 2025-11-02 02:07:36_
+_Généré automatiquement le 2025-11-02 02:09:27_
 
 ## 🔗 Fichier source
 `~/.aliases`
