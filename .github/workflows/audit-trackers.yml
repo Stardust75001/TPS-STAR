@@ -54,7 +54,6 @@ jobs:
           set -euo pipefail
           page="out/fetched.html"
 
-          # Helpers
           ok(){ echo "ok"; }
           ko(){ echo "missing"; }
 
@@ -271,7 +270,7 @@ jobs:
           </html>
           CSSHTML
 
-          # Construit le JSON pour le script
+          # Injecte les données collectées dans le template
           jq_available=0
           command -v jq >/dev/null && jq_available=1
 
