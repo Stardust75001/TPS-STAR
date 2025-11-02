@@ -1,159 +1,85 @@
-{%- comment -%}
-  THE PET SOCIETY — Integrations bootstrap
-  Centralise les métachamps custom_integrations.* :
-    - ga4_token
-    - meta_pixel_id
-    - sentry_dsn
-    - cloudflare_beacon_token
-{%- endcomment -%}
-{%- liquid
-  assign integ = shop.metafields.custom_integrations
-  assign GA4_ID     = integ.ga4_token | default: '' | strip
-  assign META_ID    = integ.meta_pixel_id | default: '' | strip
-  assign SENTRY_DSN = integ.sentry_dsn | default: '' | strip
-  assign CF_TOKEN   = integ.cloudflare_beacon_token | default: '' | strip
--%}
+#!/bin/bash
 
-<script id="tps-integrations" type="application/json">
-  {{
-    {
-      ga4: GA4_ID,
-      meta_pixel_id: META_ID,
-      sentry_dsn: SENTRY_DSN,
-      cloudflare_beacon_token: CF_TOKEN
-    } | json
-  }}
-</script>
+# TPS-STAR Post-Deploy Diagnostic
+# Vérifie que les corrections sont bien appliquées
 
-<script>
-  (function () {
-    var cfgEl = document.getElementById('tps-integrations');
-    var cfg = {};
-    try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+echo "🩺 TPS-STAR POST-DEPLOY DIAGNOSTIC"
+echo "==================================="
+echo ""
 
-    window.TPS = window.TPS || {};
-    window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
+echo "✅ CORRECTIONS APPLIQUÉES :"
+echo ""
 
-    function loadScript(src, id, attrs) {
-      return new Promise(function(resolve, reject){
-        if (id && document.getElementById(id)) return resolve();
-        var s = document.createElement('script');
-        s.src = src; s.async = true; if (id) s.id = id;
-        if (attrs) Object.keys(attrs).forEach(k => s.setAttribute(k, attrs[k]));
-        s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
+# 1. Vérifier que TPS.debug est défini immédiatement
+if grep -q "window.TPS.debug.*enable" snippets/integrations.liquid; then
+    echo "1. ✅ TPS.debug.enable() défini immédiatement (plus de ReferenceError)"
+else
+    echo "1. ❌ TPS.debug.enable() manquant"
+fi
 
-    // === SENTRY ===
-    if (cfg.sentry_dsn) {
-      loadScript('https://browser.sentry-cdn.com/7.120.1/bundle.tracing.replay.min.js', 'sentry-sdk')
-      .then(() => {
-        Sentry.init({
-          dsn: cfg.sentry_dsn,
-          integrations: [
-            Sentry.browserTracingIntegration(),
-            Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })
-          ],
-          tracesSampleRate: 1.0,
-          replaysSessionSampleRate: 0.1,
-          replaysOnErrorSampleRate: 1.0,
-          environment: "{{ request.locale.iso_code | upcase }}",
-          release: "{{ shop.permanent_domain }}@{{ 'now' | date: '%Y-%m-%d' }}"
-        });
+# 2. Vérifier les clés metafields robustes
+if grep -q "integ.ga4_token.*default.*integ.GA4_Token" snippets/integrations.liquid; then
+    echo "2. ✅ Metafields robustes (lowercase + CamelCase fallback)"
+else
+    echo "2. ❌ Metafields robustes manquants"
+fi
 
-        // Add custom context and tags for TPS-STAR
-        Sentry.configureScope(function(scope) {
-          scope.setTag("store", "{{ shop.permanent_domain }}");
-          scope.setTag("theme", "tps-star");
-          scope.setTag("locale", "{{ request.locale.iso_code }}");
-          scope.setContext("page", {
-            type: "{{ request.page_type }}",
-            url: "{{ canonical_url }}",
-            title: "{{ page_title | escape }}"
-          });
-          scope.setContext("shop", {
-            name: "{{ shop.name | escape }}",
-            domain: "{{ shop.permanent_domain }}",
-            currency: "{{ shop.currency }}"
-          });
-        });
+# 3. Vérifier Sentry sans SRI
+if grep -q "Sentry.init" snippets/integrations.liquid && ! grep -q "integrity.*sha" snippets/integrations.liquid; then
+    echo "3. ✅ Sentry sans SRI (plus d'erreur integrity)"
+else
+    echo "3. ❌ Sentry SRI encore présent"
+fi
 
-        console.log('[TPS-STAR] Sentry initialized with DSN:', cfg.sentry_dsn.substring(0, 20) + '...');
-      });
-    }
+# 4. Vérifier les logs de chargement
+if grep -q "🪟 Clarity loaded:" snippets/integrations.liquid && grep -q "🔥 Hotjar loaded:" snippets/integrations.liquid; then
+    echo "4. ✅ Logs de chargement Clarity & Hotjar"
+else
+    echo "4. ❌ Logs de chargement manquants"
+fi
 
-    // === GA4 ===
-    if (cfg.ga4) {
-      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4), 'ga4')
-      .then(() => {
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-        window.gtag = gtag;
-        gtag('js', new Date());
-        gtag('config', cfg.ga4, { 'anonymize_ip': true });
-      });
-    }
+# 5. Vérifier le debug Meta Pixel
+if grep -q "console.log.*meta id.*typeof" snippets/integrations.liquid; then
+    echo "5. ✅ Debug Meta Pixel (diagnostic Invalid PixelID)"
+else
+    echo "5. ❌ Debug Meta Pixel manquant"
+fi
 
-    // === META PIXEL ===
-    if (cfg.meta_pixel_id) {
-      (function(f,b,e,v,n,t,s){
-        if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-        n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
-        s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);
-      })(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-
-      try { fbq('init', cfg.meta_pixel_id); fbq('track', 'PageView'); }
-      catch(e) { console.warn('[TPS] Meta Pixel failed'); }
-    }
-
-    // === CLOUDFLARE BEACON ===
-    if (cfg.cloudflare_beacon_token) {
-      loadScript('https://static.cloudflareinsights.com/beacon.min.js', 'cf-beacon', {
-        'defer': '',
-        'data-cf-beacon': JSON.stringify({ token: cfg.cloudflare_beacon_token })
-      });
-    }
-
-    // === TPS-STAR ENHANCED TRACKING ===
-    window.TPS.pageReady = function() {
-      console.log('[TPS-STAR] Page tracking initialized');
-      
-      // Enhanced GA4 tracking with page context
-      if (window.gtag) {
-        gtag('event', 'page_view', {
-          'page_type': '{{ request.page_type }}',
-          'store_name': '{{ shop.name | escape }}',
-          'locale': '{{ request.locale.iso_code }}',
-          'theme': 'tps-star'
-        });
-      }
-    };
-
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
-    } else {
-      window.TPS.pageReady();
-    }
-  })();
-</script>
-
-{% comment %} Debug mode for development {% endcomment %}
-{% if settings.active_debug_console %}
-  <script>
-    console.group('🔍 TPS-STAR Integrations Debug');
-    console.log('📊 Metafields Integration Status:');
-    console.log('  - GA4:', {{ shop.metafields.custom_integrations.ga4_token | default: 'Not set' | json }});
-    console.log('  - Meta Pixel:', {{ shop.metafields.custom_integrations.meta_pixel_id | default: 'Not set' | json }});
-    console.log('  - Sentry DSN:', {{ shop.metafields.custom_integrations.sentry_dsn | default: 'Not set' | json }});
-    console.log('  - Cloudflare:', {{ shop.metafields.custom_integrations.cloudflare_beacon_token | default: 'Not set' | json }});
-    console.log('🎯 Page Context:');
-    console.log('  - Type:', '{{ request.page_type }}');
-    console.log('  - Locale:', '{{ request.locale.iso_code }}');
-    console.log('  - URL:', '{{ canonical_url }}');
-    console.groupEnd();
-  </script>
-{% endif %}
+echo ""
+echo "🧪 TESTS À EFFECTUER DANS LE NAVIGATEUR :"
+echo ""
+echo "1. Ouvrez test-tps-debug.html dans votre navigateur"
+echo "2. Console (F12) → Tapez : TPS.debug.enable()"
+echo "3. Vous devriez voir :"
+echo "   - 🔍 TPS-STAR Debug Info"
+echo "   - 📊 Config loaded: {ga4: ..., meta_pixel_id: ...}"
+echo "   - 🎯 Active platforms: [\"ga4\", \"meta_pixel_id\", ...]"
+echo ""
+echo "4. Sur votre site Shopify (après déploiement) :"
+echo "   - Console → TPS.debug.enable()"
+echo "   - Vérifiez ces logs :"
+echo "     ✅ '[TPS-STAR] System initialized'"
+echo "     ✅ '🪟 Clarity loaded: tzvd9w6rjs'"
+echo "     ✅ '🔥 Hotjar loaded: 6564192'"
+echo "     ✅ '[TPS] meta id: 1973238620087976 string'"
+echo "     ✅ '[TPS-STAR] Meta Pixel initialized: 1973...'"
+echo ""
+echo "❌ ERREURS QUI DOIVENT DISPARAÎTRE :"
+echo "   - 'ReferenceError: Can't find variable: TPS'"
+echo "   - 'Invalid PixelID: null'"
+echo "   - 'integrity metadata check'"
+echo "   - 'ReferenceError: Sentry is not defined'"
+echo ""
+echo "🔧 CONFIGURATION METAFIELDS REQUISE :"
+echo "   Shopify Admin → Settings → Metafields → Shop"
+echo "   Namespace: custom_integrations | Type: Single line text"
+echo "   + Activer 'Storefront API access' pour chaque champ !"
+echo ""
+echo "   ga4_token → G-E4NPI2ZZM3"
+echo "   meta_pixel_id → 1973238620087976"
+echo "   sentry_dsn → votre-dsn-complet"
+echo "   clarity_id → tzvd9w6rjs"
+echo "   hotjar_id → 6564192"
+echo "   cloudflare_beacon_token → 21fd2470..."
+echo ""
+echo "🚀 Si tous les tests passent, votre TPS-STAR est prêt !"
