@@ -1,0 +1,53 @@
+name: "🧩 Sentry Release & Deploy"
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read     # requis pour set_commits:auto (lecture Git)
+
+jobs:
+  sentry-release:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      RELEASE: ${{ github.sha }}
+      ENVIRONMENT: production
+
+    steps:
+      - name: Checkout (full history for set_commits)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1️⃣ Create release + attach commits + finalize
+      - name: Sentry – create/set_commits/finalize
+        uses: getsentry/action-release@v2
+        env:
+          SENTRY_AUTH_TOKEN: ${{ env.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ env.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ env.SENTRY_PROJECT }}
+        with:
+          version: ${{ env.RELEASE }}
+          projects: ${{ env.SENTRY_PROJECT }}
+          set_commits: "auto"
+          ignore_empty: true
+          finalize: true
+          environment: ${{ env.ENVIRONMENT }}
+
+      # 2️⃣ Create deploy (option clair & découplé)
+      - name: Sentry – create deploy
+        run: |
+          curl -sSf -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d @- https://sentry.io/api/0/organizations/"$SENTRY_ORG"/releases/"$RELEASE"/deploys/ <<JSON
+          {
+            "environment": "${ENVIRONMENT}",
+            "name": "github-actions #${{ github.run_number }}",
+            "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          JSON
