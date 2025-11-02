@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPS-STAR Complete Test with Real Trackers</title>
+</head>
+<body>
+    <h1>🚀 TPS-STAR Complete Test</h1>
+    <div style="background: #f0f0f0; padding: 20px; margin: 20px 0; border-radius: 8px;">
+        <h2>📋 Instructions :</h2>
+        <ol>
+            <li>Ouvrez la console (F12)</li>
+            <li>Tapez : <code>TPS.debug.enable()</code></li>
+            <li>Ensuite tapez le test rapide ci-dessous :</li>
+        </ol>
+
+        <div style="background: #333; color: #0f0; padding: 15px; border-radius: 5px; font-family: monospace;">
+// Test rapide TPS-STAR<br>
+console.log('🧪 TPS-STAR Quick Test');<br>
+console.log('Clarity:', typeof clarity === 'function' ? '✅' : '❌');<br>
+console.log('Hotjar:', typeof hj === 'function' ? '✅' : '❌');<br>
+console.log('GA4:', typeof gtag === 'function' ? '✅' : '❌');<br>
+console.log('Meta:', typeof fbq === 'function' ? '✅' : '❌');
+        </div>
+    </div>
+
+    <!-- Configuration JSON -->
+    <script id="tps-integrations" type="application/json">
+      {
+        "ga4": "G-E4NPI2ZZM3",
+        "meta_pixel_id": "1973238620087976",
+        "sentry_dsn": "",
+        "cloudflare_beacon_token": "21fd2470",
+        "clarity_id": "tzvd9w6rjs",
+        "hotjar_id": "6564192",
+        "amplitude_key": "",
+        "domain": "test-domain.com"
+      }
+    </script>
+
+    <!-- TPS System Initialization -->
+    <script>
+      (function () {
+        var cfgEl = document.getElementById('tps-integrations');
+        var cfg = {};
+        try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+
+        window.TPS = window.TPS || {};
+        window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
+
+        // TPS Debug function available immediately
+        window.TPS.debug = window.TPS.debug || {
+          enable: function() {
+            console.group('🔍 TPS-STAR Debug Info');
+            console.log('📊 Config loaded:', cfg);
+            console.log('🎯 Active platforms:', Object.keys(cfg).filter(k => cfg[k] && cfg[k] !== 'null' && cfg[k] !== ''));
+            console.log('🔗 TPS object:', window.TPS);
+            console.groupEnd();
+          }
+        };
+
+        console.log('✅ TPS-STAR initialized - Try: TPS.debug.enable()');
+      })();
+    </script>
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E4NPI2ZZM3"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-E4NPI2ZZM3');
+      console.log('✅ Google Analytics 4 loaded');
+    </script>
+
+    <!-- Meta Pixel -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '1973238620087976');
+      fbq('track', 'PageView');
+      console.log('✅ Meta Pixel loaded');
+    </script>
+
+    <!-- Microsoft Clarity -->
+    <script type="text/javascript">
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "tzvd9w6rjs");
+      console.log('✅ Microsoft Clarity loaded');
+    </script>
+
+    <!-- Hotjar -->
+    <script>
+      (function(h,o,t,j,a,r){
+          h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+          h._hjSettings={hjid:6564192,hjsv:6};
+          a=o.getElementsByTagName('head')[0];
+          r=o.createElement('script');r.async=1;
+          r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+          a.appendChild(r);
+      })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+      console.log('✅ Hotjar loaded');
+    </script>
+
+    <!-- Test automatique après chargement -->
+    <script>
+      // Attendre que tous les scripts soient chargés
+      setTimeout(function() {
+        console.group('🧪 TPS-STAR Automatic Test Results');
+        console.log('TPS System:', typeof TPS === 'object' ? '✅ LOADED' : '❌ MISSING');
+        console.log('Microsoft Clarity:', typeof clarity === 'function' ? '✅ ACTIVE' : '❌ MISSING');
+        console.log('Hotjar:', typeof hj === 'function' ? '✅ ACTIVE' : '❌ MISSING');
+        console.log('Google Analytics 4:', typeof gtag === 'function' ? '✅ ACTIVE' : '❌ MISSING');
+        console.log('Meta Pixel:', typeof fbq === 'function' ? '✅ ACTIVE' : '❌ MISSING');
+
+        const activeCount = [
+          typeof clarity === 'function',
+          typeof hj === 'function',
+          typeof gtag === 'function',
+          typeof fbq === 'function'
+        ].filter(Boolean).length;
+
+        console.log(`📊 Status: ${activeCount}/4 trackers active`);
+
+        if (activeCount === 4) {
+          console.log('🎉 SUCCESS: All TPS-STAR trackers are fully operational!');
+        } else {
+          console.log('⚠️  Some trackers are missing - check your configuration');
+        }
+
+        console.groupEnd();
+      }, 3000); // Attendre 3 secondes pour le chargement
+    </script>
+
+    <div style="margin-top: 30px; padding: 20px; background: #e7f3ff; border-radius: 8px;">
+        <h3>🎯 Ce que vous devriez voir dans la console :</h3>
+        <ul>
+            <li>✅ Messages de chargement pour chaque tracker</li>
+            <li>✅ Test automatique après 3 secondes montrant 4/4 trackers actifs</li>
+            <li>✅ TPS.debug.enable() fonctionnel</li>
+        </ul>
+
+        <p><strong>Si tous les trackers montrent ✅, alors votre problème vient probablement de votre environnement de test local.</strong></p>
+
+        <h4>🔧 Étapes suivantes :</h4>
+        <ol>
+            <li>Testez ce fichier HTML d'abord</li>
+            <li>Si ça fonctionne ici, le problème est dans votre site Shopify</li>
+            <li>Vérifiez vos metafields Shopify si ce test fonctionne</li>
+        </ol>
+    </div>
+</body>
+</html>
