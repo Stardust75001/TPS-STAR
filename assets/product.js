@@ -40,7 +40,7 @@ window.handleAddToCartFormSubmit = async (form, event) => {
     try {
       const data = await response.clone().json();
       const formData = new FormData(form);
-      
+
       window.TPS.trackEvent('Add to Cart', {
         product_id: data.product_id || formData.get('id'),
         product_title: data.product_title || document.querySelector('.product-title')?.textContent?.trim(),
@@ -249,7 +249,7 @@ window.handleProductOptionChange = async input => {
                       ${window.theme.product.save}: ${Math.round(
                         (1 - variantSelected.price / variantSelected.compare_at_price) * 100
                       )}%
-                  </span>    
+                  </span>
               `
         );
     } else if (!variantSelected.available) {
@@ -581,7 +581,7 @@ if (window.TPS && window.TPS.trackEvent && typeof window.product !== 'undefined'
       try {
         const product = window.product || {};
         const variant = window.currentVariant || product.selected_or_first_available_variant || {};
-        
+
         window.TPS.trackEvent('Product View', {
           product_id: product.id,
           product_title: product.title || document.querySelector('.product-title, h1')?.textContent?.trim(),

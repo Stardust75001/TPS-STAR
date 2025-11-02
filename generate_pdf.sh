@@ -64,7 +64,7 @@ if [ -f "TPS-STAR-Implementation-Report.pdf" ]; then
     echo "   • Timeline de déploiement"
     echo ""
     echo "💡 Le rapport est prêt pour présentation !"
-    
+
     # Ouvrir le PDF (optionnel)
     read -p "Voulez-vous ouvrir le PDF maintenant ? (y/n): " -n 1 -r
     echo

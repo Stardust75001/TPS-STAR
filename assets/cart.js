@@ -102,7 +102,7 @@ window.handleCartItemRemoval = async btn => {
     try {
       const productTitle = btn.closest('[data-line-item]')?.querySelector('[data-product-title]')?.textContent?.trim();
       const productPrice = btn.closest('[data-line-item]')?.querySelector('[data-line-price]')?.textContent;
-      
+
       window.TPS.trackEvent('Remove from Cart', {
         line_item_key: btn.dataset.lineItemKey,
         product_title: productTitle,
@@ -120,7 +120,7 @@ window.handleCartItemRemoval = async btn => {
 window.handleCartQuantityChange = async input => {
   const oldQuantity = input.dataset.oldValue || 0;
   const newQuantity = parseInt(input.value) || 0;
-  
+
   const response = await fetch('/cart/change.js', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -132,7 +132,7 @@ window.handleCartQuantityChange = async input => {
     try {
       const productTitle = input.closest('[data-line-item]')?.querySelector('[data-product-title]')?.textContent?.trim();
       const productPrice = input.closest('[data-line-item]')?.querySelector('[data-line-price]')?.textContent;
-      
+
       window.TPS.trackEvent('Change Cart Quantity', {
         line_item_key: input.dataset.lineItemKey,
         product_title: productTitle,
