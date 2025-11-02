@@ -11,12 +11,13 @@ on:
         required: true
 
 env:
-  DOMAIN: ${{ secrets.TPS_DOMAIN }}                 # ex: https://thepetsociety.paris
-  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}       # ex: G-XXXXXXX (facultatif, sinon pattern)
-  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }} # ex: 1234567890
-  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }}   # meta ahrefs-site-verification
-  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}   # token Cloudflare Beacon
-  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}       # DSN complet (facultatif, sinon pattern)
+  DOMAIN: ${{ secrets.TPS_DOMAIN }}                       # ex: https://thepetsociety.paris
+  EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}             # ex: G-XXXXXXX (facultatif, sinon pattern)
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}# ex: 1234567890
+  EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }} # meta ahrefs-site-verification
+  EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}         # token Cloudflare Beacon
+  EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}     # DSN complet (facultatif, sinon pattern)
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}     # optionnel
 
 jobs:
   audit:
@@ -274,7 +275,6 @@ jobs:
           jq_available=0
           command -v jq >/dev/null && jq_available=1
 
-          # Construit le JSON pour le script
           if [ $jq_available -eq 1 ]; then
             payload=$(jq -nc \
               --arg url "${URL}" \
@@ -306,6 +306,34 @@ jobs:
             out/fetched.html
           retention-days: 7
           if-no-files-found: warn
+
+      - name: 💬 Slack (résumé compact)
+        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
+        env:
+          URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          URL_ART: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GA4:     ${{ steps.scan.outputs.ga4 }}
+          META:    ${{ steps.scan.outputs.meta }}
+          AHREFS:  ${{ steps.scan.outputs.ahrefs }}
+          CF:      ${{ steps.scan.outputs.cf }}
+          SENTRY:  ${{ steps.scan.outputs.sentry }}
+          TARGET:  ${{ steps.fetch.outputs.url }}
+        run: |
+          set -euo pipefail
+          STATUS="OK"
+          for v in "$GA4" "$META" "$AHREFS" "$CF" "$SENTRY"; do
+            [ "$v" = "ok" ] || STATUS="ACTION NEEDED ❗"
+          done
+          cat > slack-temp.json <<JSON
+          {
+            "text": "Audit Trackers — ${STATUS}",
+            "blocks": [
+              { "type": "section", "text": { "type": "mrkdwn",
+                "text": "*Audit Trackers* — *${STATUS}*\\n*Target:* ${TARGET}\\n• *GA4:* ${GA4}  • *Meta:* ${META}  • *Ahrefs:* ${AHREFS}  • *CF:* ${CF}  • *Sentry:* ${SENTRY}\\n<${URL_RUN}|Voir le run> • <${URL_ART}|Télécharger les artefacts>" } }
+            ]
+          }
+          JSON
+          curl -s -X POST -H 'Content-type: application/json' --data @slack-temp.json "$SLACK_WEBHOOK_URL" >/dev/null || true
 
       - name: ❗️Échec si manquants
         run: |
