@@ -1,7 +1,6 @@
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib
-matplotlib.use("Agg")
+
 #!/usr/bin/env python3
 """
 generate_weekly_report.py
@@ -243,10 +242,10 @@ def build_pdf(out_path: str):
             elif 'Ahrefs' in name:
                 text += "- Account plan insufficient for v3 Site Explorer if you see errors.\n- Review backlinks/ref-domains and prioritize high-authority links."
 
-            plt.figtext(0.1, 0.05, text, 
-                        fontsize=10, 
-                        wrap=True, 
-                        verticalalignment='bottom', 
+            plt.figtext(0.1, 0.05, text,
+                        fontsize=10,
+                        wrap=True,
+                        verticalalignment='bottom',
                         bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgray", alpha=0.8))
             plt.subplots_adjust(bottom=0.35, top=0.92)
             pdf.savefig()
@@ -473,83 +472,80 @@ def post_webhook_message(webhook_url: str, text: str) -> bool:
 
 
 def main():
-    out_dir = os.environ.get('REPORT_OUT_DIR', 'out')
-    os.makedirs(out_dir, exist_ok=True)
+    # debug info for CI
+    print(">>> Running generate_weekly_report.py")
+    keys = ["TPS_DOMAIN", "GA4_PROPERTY_ID", "AMPLITUDE_API_KEY", "SENDGRID_API_KEY", "SENDGRID_SENDER",
+            "SMTP_SERVER", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "EMAIL_RECIPIENT"]
+    present = {k: bool(os.getenv(k)) for k in keys}
+    print("Env presence:", present)
+
     date_str = datetime.utcnow().strftime('%Y%m%d')
-    out_pdf = os.path.join(out_dir, f'tps-weekly-report-{date_str}.pdf')
+    out_dir = Path('out')
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = str(out_dir / f"tps-weekly-report-{date_str}.pdf")
 
-    print('Building PDF report...')
-    pdf_path = build_pdf(out_pdf)
-    print('PDF generated at', pdf_path)
-
-    # Email settings from env / GitHub secrets
-    smtp_server = os.environ.get('SMTP_SERVER')
-    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-    smtp_user = os.environ.get('SMTP_USERNAME')
-    smtp_pass = os.environ.get('SMTP_PASSWORD')
-    recipient = os.environ.get('EMAIL_RECIPIENT', 'hello@thepetsociety.fr')
-
-    # Prefer SendGrid in CI when available (more reliable / less DNS dependency)
-    sendgrid_key = os.environ.get('SENDGRID_API_KEY')
-    sendgrid_sender = os.environ.get('SENDGRID_SENDER')
-
-    subject = f"TPS-STAR Weekly Analytics Report — {datetime.utcnow().strftime('%Y-%m-%d')}"
-    body = "Attached: weekly analytics report (PDF). See attached for graphs, analysis and recommended next steps."
-
-    emailed = False
-    # Try SendGrid first when configured
-    if sendgrid_key and sendgrid_sender and pdf_path:
+    try:
+        print("Generating PDF to", out_path)
+        build_pdf(out_path)
+        print("PDF written:", out_path)
+        # also copy to repo root for easier discovery in CI
         try:
-            print('Attempting SendGrid delivery to', recipient)
-            sg_ok = send_via_sendgrid(sendgrid_key, sendgrid_sender, recipient, subject, body, pdf_path)
-            if sg_ok:
-                print('SendGrid delivered the message')
-                emailed = True
-            else:
-                print('SendGrid attempt returned failure; will try SMTP if configured')
-        except Exception as e:
-            print('SendGrid attempt raised an exception:', repr(e))
+            root_copy = Path.cwd() / Path(f"tps-weekly-report-{date_str}.pdf")
+            Path(out_path).replace(root_copy)
+            print("Copied PDF to repo root as", root_copy)
+        except Exception:
+            # fallback: also attempt a normal copy (keep original)
+            try:
+                import shutil
+                shutil.copy(out_path, Path.cwd() / f"tps-weekly-report-{date_str}.pdf")
+                print("Also copied PDF to repo root (shutil)")
+            except Exception as e:
+                print("Warning: failed to copy PDF to repo root:", e)
+    except Exception as e:
+        print("ERROR: PDF generation failed:", repr(e))
+        # save small debug file
+        _save_delivery_response({"error": repr(e)})
 
-    # If SendGrid not used or failed, try SMTP when configured
-    if not emailed and smtp_server and smtp_user and smtp_pass and pdf_path:
+if __name__ == "__main__":
+    try:
+        reporter = TPSAnalyticsReporter()
+        reporter.run()
         try:
-            print('Attempting SMTP delivery to', recipient)
-            ok = send_email(smtp_server, smtp_port, smtp_user, smtp_pass, recipient, subject, body, pdf_path)
-            if ok:
-                print('Email sent via SMTP')
-                emailed = True
-            else:
-                print('SMTP send failed; check credentials and network. Report generation succeeded.')
-        except Exception as e:
-            print('SMTP send raised an exception:', repr(e))
+            reporter.save_data_json()
+        except Exception:
+            pass
+        try:
+            insights = reporter.generate_insights_and_recommendations()
+            reporter.create_html_report(insights)
+        except Exception:
+            pass
 
-    if not emailed:
-        print('No successful email delivery. Report available at:', pdf_path)
-    # Slack delivery (optional)
-    slack_token = os.environ.get('SLACK_BOT_TOKEN')
-    slack_channel = os.environ.get('SLACK_CHANNEL')
-    slack_webhook = os.environ.get('SLACK_WEBHOOK_URL')
-    if slack_token and slack_channel:
-        print('Uploading PDF to Slack channel', slack_channel)
-        ok = upload_file_to_slack(slack_token, slack_channel, pdf_path, title=f'TPS-STAR Weekly Report {datetime.utcnow().strftime("%Y-%m-%d")}')
-        if ok:
-            print('Report uploaded to Slack')
-        else:
-            print('Failed to upload report to Slack via files.upload')
-    elif slack_webhook:
-        print('Uploading PDF to transfer.sh for webhook delivery')
-        url = upload_to_transfersh(pdf_path)
-        if url:
-            text = f"TPS-STAR Weekly report generated: {url} (expires per transfer.sh policy)"
-            posted = post_webhook_message(slack_webhook, text)
-            if posted:
-                print('Posted report link to Slack via webhook')
-            else:
-                print('Failed to post report link to Slack webhook')
-        else:
-            print('Failed to upload report to transfer.sh; cannot post webhook link')
-    else:
-        print('SMTP credentials not found in env; skipping email send. Report available at:', pdf_path)
+        # Fallback: also produce the simple PDF for CI artifact discovery
+        try:
+            date_str = datetime.utcnow().strftime('%Y%m%d')
+            out_dir = Path('out')
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = str(out_dir / f"tps-weekly-report-{date_str}.pdf")
+            print("Generating fallback PDF to", out_path)
+            build_pdf(out_path)
+            print("Fallback PDF written:", out_path)
+            # copy to repo root for easy artifact finding
+            root_copy = Path.cwd() / Path(f"tps-weekly-report-{date_str}.pdf")
+            try:
+                Path(out_path).replace(root_copy)
+                print("Copied PDF to repo root as", root_copy)
+            except Exception:
+                import shutil
+                shutil.copy(out_path, root_copy)
+                print("Also copied PDF to repo root (shutil)")
+        except Exception as e:
+            print("Fallback PDF generation failed:", repr(e))
+    except Exception as e:
+        print("Reporter run failed, falling back to legacy main():", repr(e))
+        try:
+            main()
+        except Exception as e2:
+            print("Legacy main() also failed:", repr(e2))
 
 # Disabled duplicate procedural entrypoint. Use the class-based
 # TPSAnalyticsReporter at the end of this file as the single entrypoint.
@@ -976,6 +972,7 @@ class TPSAnalyticsReporter:
                 html_path = 'reports/charts/user_behavior.html'
                 fig.savefig(png_path, dpi=150)
                 plt.close(fig)
+                # Simple HTML wrapper embedding the PNG
                 with open(html_path, 'w', encoding='utf-8') as f:
                     f.write("<html><body><img src='user_behavior.png' style='max-width:100%' /></body></html>")
         else:
@@ -1012,6 +1009,7 @@ class TPSAnalyticsReporter:
             html_path = 'reports/charts/user_behavior.html'
             fig.savefig(png_path, dpi=150)
             plt.close(fig)
+            # Simple HTML wrapper embedding the PNG
             with open(html_path, 'w', encoding='utf-8') as f:
                 f.write("<html><body><img src='user_behavior.png' style='max-width:100%' /></body></html>")
 
