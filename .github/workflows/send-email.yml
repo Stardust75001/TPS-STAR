@@ -13,7 +13,24 @@ jobs:
     steps:
       - name: Send test email via SendGrid
         run: |
-          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
+          set -euo pipefail
+
+          payload='{"personalizations":[{"to":[{"email":"'"$TO_EMAIL"'"}]}],"from":{"email":"'"$FROM_EMAIL"'"},"subject":"CI Test","content":[{"type":"text/plain","value":"ok"}]}'
+
+          # envoie et capture corps + code HTTP (dernier ligne)
+          resp=$(curl -s -w "\n%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
             -H "Authorization: Bearer $SENDGRID_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"personalizations":[{"to":[{"email":"'"$TO_EMAIL"'"}]}],"from":{"email":"'"$FROM_EMAIL"'"},"subject":"CI Test","content":[{"type":"text/plain","value":"ok"}]}'
+            -d "$payload")
+
+          http=$(printf '%s' "$resp" | tail -n1)
+          body=$(printf '%s' "$resp" | sed '$d' || true)
+
+          echo "sendgrid_http=${http}" >> "$GITHUB_OUTPUT"
+          echo "sendgrid_response<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "SendGrid HTTP status: $http"
+          [ "$http" -ge 200 ] && [ "$http" -lt 300 ] || { echo "SendGrid error response:"; echo "$body"; exit 1; }
+          echo "Email request accepted by SendGrid."
