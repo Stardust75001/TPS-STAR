@@ -70,7 +70,6 @@ jobs:
           ls -la out/ || echo "No out/ directory"
           ls -la reports/ || echo "No reports/ directory"
           
-          # Copy any generated PDFs to out
           find . -maxdepth 2 -name "*.pdf" -type f -not -path "./out/*" -not -name "*Guide*" -not -name "*Dashboard*" -exec cp {} out/ \; || echo "No PDFs to copy"
           
           echo "📦 Final out/ directory contents:"
