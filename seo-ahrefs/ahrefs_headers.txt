@@ -1,0 +1,17 @@
+HTTP/2 403 
+date: Mon, 03 Nov 2025 02:15:13 GMT
+content-type: application/json
+server: cloudflare
+cf-ray: 99885cd4dd18eb36-SJC
+cf-cache-status: DYNAMIC
+set-cookie: __cflb=0H28vqPC4cvrzdMCZwiPnKLRch7A7diPrPW3ze68NFW; SameSite=Lax; path=/; expires=Tue, 04-Nov-25 01:15:13 GMT; HttpOnly
+set-cookie: __cf_bm=.wNkHHC_fYB31BShYnOe8Zn1QyiP6ZIDaRj6L4zBmHQ-1762136113-1.0.1.1-sXi9Zj8tQ5uxNrw3R9m7OHMO4II87nUCys4wrzsx.5E9VYSipGC4ZOyvzKSsYkqS287.MQ8MP2XiHK6.QDz55fUsPvf1lArdMAITYDxQpzc; path=/; expires=Mon, 03-Nov-25 02:45:13 GMT; domain=.ahrefs.com; HttpOnly; Secure; SameSite=None
+set-cookie: _cfuvid=nTaR2jK0e5yUEczRBbWaKgU5T3P3en_hCG28peo4U8E-1762136113540-0.0.1.1-604800000; path=/; domain=.ahrefs.com; HttpOnly; Secure; SameSite=None
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+vary: Accept-Encoding, X-Client-Version
+cf-apo-via: origin,host
+x-request-id: 290e5a9a2a950b815a711af935703385
+x-request-trace-id: a259c8c6a5dc25b58c8a19a396085797-e2cfd976f4185035
+x-trace-id: a259c8c6a5dc25b58c8a19a396085797
+alt-svc: h3=":443"; ma=86400
+

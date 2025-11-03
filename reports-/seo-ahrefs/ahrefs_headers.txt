@@ -1,0 +1,20 @@
+HTTP/2 401 
+date: Mon, 03 Nov 2025 03:36:17 GMT
+content-type: application/json
+content-length: 24
+server: cloudflare
+cf-ray: 9988d39469ea6b5e-DFW
+cf-cache-status: DYNAMIC
+set-cookie: __cflb=0H28vqPC4cvrzdMCZwiPnKLRch7A7diPxk9cXKCsURA; SameSite=Lax; path=/; expires=Tue, 04-Nov-25 02:36:17 GMT; HttpOnly
+set-cookie: __cf_bm=lZPxqH6yHZ83EPGtR3XgElsoje.mV7sQ1VO67M2G5gw-1762140977-1.0.1.1-lhRacU9d1SaYH.2VXoTlVvUaO2yeJJjJ.tN.CKJn9Uyspsd1.d_.LqTSeBN2mzbgYwiw2tWG.HDgF42X.DHeavSGtwq4H9MIysoRM6TrhqY; path=/; expires=Mon, 03-Nov-25 04:06:17 GMT; domain=.ahrefs.com; HttpOnly; Secure; SameSite=None
+set-cookie: _cfuvid=xlcrqqljNM82XA6T1eeLpaC7jU_lyYKADhm0vX4vEpo-1762140977445-0.0.1.1-604800000; path=/; domain=.ahrefs.com; HttpOnly; Secure; SameSite=None
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+vary: X-Client-Version
+cf-apo-via: origin,host
+x-client-version: release-20251103-bk279870-4dd006984c34e
+x-request-id: 92670d78dbdacaef3f322aa88862decd
+x-request-id: 92670d78dbdacaef3f322aa88862decd
+x-request-trace-id: d4f2b99e1d1d3ef71aaf3f79c207fc30-c0469368b131eecc
+x-trace-id: d4f2b99e1d1d3ef71aaf3f79c207fc30
+alt-svc: h3=":443"; ma=86400
+
