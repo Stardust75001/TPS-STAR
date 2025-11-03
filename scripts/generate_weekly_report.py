@@ -1,5 +1,234 @@
 #!/usr/bin/env python3
 """
+generate_weekly_report.py
+
+Minimal weekly report generator for TPS-STAR.
+Collects (placeholder) data for several trackers, draws simple graphs,
+produces a PDF and emails it to a configured recipient.
+
+Notes:
+- This is a scaffold: replace the placeholder data-fetching functions with
+  real API calls (Sentry, Cloudflare, Meta, Search Console, GA4, Ahrefs)
+  and provide the corresponding secrets as environment variables.
+- The script is defensive: if no API keys are present it generates sample data
+  so the report still runs.
+"""
+import os
+import sys
+import io
+import smtplib
+import json
+from datetime import datetime, timedelta
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from email.message import EmailMessage
+from email.utils import formatdate
+
+
+def sample_timeseries(days=14, base=100, noise=0.15):
+    dates = [datetime.utcnow().date() - timedelta(days=(days-1-i)) for i in range(days)]
+    values = np.maximum(0, (base * (1 + noise * np.random.randn(days))).astype(int))
+    return pd.Series(values, index=pd.to_datetime(dates))
+
+
+def fetch_sentry_errors():
+    # Placeholder: replace with Sentry API call
+    return sample_timeseries(days=14, base=25, noise=0.3)
+
+
+def fetch_cloudflare_metrics():
+    # Placeholder: replace with Cloudflare API call
+    return sample_timeseries(days=14, base=2000, noise=0.2)
+
+
+def fetch_meta_metrics():
+    # Placeholder: replace with Meta/FB/IG API calls
+    return sample_timeseries(days=14, base=350, noise=0.25)
+
+
+def fetch_search_console():
+    # Placeholder: replace with Google Search Console API
+    return sample_timeseries(days=14, base=120, noise=0.3)
+
+
+def fetch_ga4():
+    # Placeholder: replace with GA4 API
+    return sample_timeseries(days=14, base=900, noise=0.18)
+
+
+def fetch_ahrefs():
+    # Placeholder: replace with Ahrefs API call
+    return sample_timeseries(days=14, base=40, noise=0.2)
+
+
+def analyze_series(s: pd.Series, name: str):
+    latest = int(s.iloc[-1])
+    prev = int(s.iloc[-2]) if len(s) > 1 else latest
+    delta = latest - prev
+    pct = (delta / prev * 100) if prev != 0 else 0
+    trend = 'up' if delta > 0 else ('down' if delta < 0 else 'stable')
+    analysis = f"Latest: {latest}. Change vs previous: {delta} ({pct:.1f}%). Trend: {trend}."
+    critical = False
+    # simple critical rules (examples)
+    if name == 'Sentry (Error Tracking)' and latest > 100:
+        critical = True
+    if name == 'Cloudflare (Performance/Security)' and latest < 500:
+        # assume this metric is throughput; arbitrary threshold
+        critical = False
+    return analysis, critical
+
+
+def plot_series(ax, s: pd.Series, title: str, ylabel: str = ''):
+    ax.plot(s.index, s.values, marker='o', linestyle='-')
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.grid(True, alpha=0.3)
+
+
+def build_pdf(out_path: str):
+    # Collect data
+    sentry = fetch_sentry_errors()
+    cloud = fetch_cloudflare_metrics()
+    meta = fetch_meta_metrics()
+    gsc = fetch_search_console()
+    ga4 = fetch_ga4()
+    ahrefs = fetch_ahrefs()
+
+    sections = [
+        ("Sentry (Error Tracking)", "Errors per day", sentry),
+        ("Cloudflare (Performance/Security)", "Requests / day", cloud),
+        ("Meta Business (Facebook/Instagram Analytics)", "Engagements / day", meta),
+        ("Google Search Console (Search)", "Search clicks / day", gsc),
+        ("Google Analytics (GA4)", "Sessions / day", ga4),
+        ("Ahrefs (SEO)", "Estimated organic visits / day", ahrefs),
+    ]
+
+    with PdfPages(out_path) as pdf:
+        # Cover page
+        fig = plt.figure(figsize=(11.7, 8.3))
+        plt.axis('off')
+        title = "TPS-STAR — Weekly Analytics Report"
+        date_str = datetime.utcnow().strftime('%Y-%m-%d')
+        plt.text(0.5, 0.6, title, ha='center', va='center', fontsize=24)
+        plt.text(0.5, 0.48, f"Generated: {date_str} UTC", ha='center', va='center', fontsize=10)
+        plt.text(0.5, 0.38, "Summary: weekly snapshot of trackers and suggested next steps.", ha='center', va='center')
+        pdf.savefig()
+        plt.close()
+
+        critical_points = []
+
+        # One section per tracker
+        for name, ylabel, series in sections:
+            fig, ax = plt.subplots(figsize=(11.7, 8.3))
+            plot_series(ax, series, name, ylabel)
+            # analysis
+            analysis, critical = analyze_series(series, name)
+            text = f"\nAnalysis:\n{analysis}\n\nSuggested next steps:\n"
+            # heuristic suggestions
+            if name.startswith('Sentry'):
+                text += "- Investigate recent error spikes, attach stack traces, assign to owner.\n- Add rate-limiting or retry logic where appropriate."
+            elif name.startswith('Cloudflare'):
+                text += "- Verify cache hit ratio; review firewall rules for false positives.\n- Monitor latency and DDoS alerts."
+            elif name.startswith('Meta'):
+                text += "- Review recent campaign changes; verify pixel events and dedupe.\n- Validate audiences and compare organic vs paid."
+            elif 'Search Console' in name:
+                text += "- Inspect queries with dropping impressions; check indexing issues.\n- Compare top pages vs Ahrefs backlinks."
+            elif 'Google Analytics' in name:
+                text += "- Verify session attribution changes; check GA4 events mapping.\n- Validate conversions and funnel steps."
+            elif 'Ahrefs' in name:
+                text += "- Account plan insufficient for v3 Site Explorer if you see errors.\n- Review backlinks/ref-domains and prioritize high-authority links."
+
+            ax.text(0.02, 0.02, text, transform=ax.transAxes, fontsize=9, va='bottom')
+            pdf.savefig()
+            plt.close()
+
+            if critical:
+                critical_points.append((name, analysis))
+
+        # Conclusion page
+        fig = plt.figure(figsize=(11.7, 8.3))
+        plt.axis('off')
+        plt.text(0.02, 0.88, "Conclusion & Strategy", fontsize=18, weight='bold')
+        y = 0.82
+        if critical_points:
+            plt.text(0.02, y, "Critical points detected:", fontsize=12, color='red')
+            y -= 0.04
+            for name, anal in critical_points:
+                plt.text(0.04, y, f"- {name}: {anal}", fontsize=10)
+                y -= 0.035
+        else:
+            plt.text(0.02, y, "No critical alerts detected this week.", fontsize=12)
+            y -= 0.04
+
+        strategy = (
+            "Recommended strategy:\n"
+            "1) Prioritize fixing critical errors (Sentry).\n"
+            "2) Ensure tracking pixels & tags are validated (Meta / GA4).\n"
+            "3) For SEO: upgrade/enable Ahrefs API or schedule manual exports until enabled.\n"
+            "4) Keep monitoring thresholds and set automated alerts for regressions."
+        )
+        plt.text(0.02, y, strategy, fontsize=10)
+        pdf.savefig()
+        plt.close()
+
+    return out_path
+
+
+def send_email(smtp_server, smtp_port, username, password, recipient, subject, body, attachment_path):
+    msg = EmailMessage()
+    msg['From'] = username
+    msg['To'] = recipient
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+    msg.set_content(body)
+
+    with open(attachment_path, 'rb') as f:
+        data = f.read()
+    msg.add_attachment(data, maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
+
+    with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as s:
+        s.starttls()
+        s.login(username, password)
+        s.send_message(msg)
+
+
+def main():
+    out_dir = os.environ.get('REPORT_OUT_DIR', 'out')
+    os.makedirs(out_dir, exist_ok=True)
+    date_str = datetime.utcnow().strftime('%Y%m%d')
+    out_pdf = os.path.join(out_dir, f'tps-weekly-report-{date_str}.pdf')
+
+    print('Building PDF report...')
+    pdf_path = build_pdf(out_pdf)
+    print('PDF generated at', pdf_path)
+
+    # Email settings from env / GitHub secrets
+    smtp_server = os.environ.get('SMTP_SERVER')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    smtp_user = os.environ.get('SMTP_USERNAME')
+    smtp_pass = os.environ.get('SMTP_PASSWORD')
+    recipient = os.environ.get('EMAIL_RECIPIENT', 'hello@thepetsociety.fr')
+
+    if smtp_server and smtp_user and smtp_pass:
+        print('Sending email to', recipient)
+        subject = f"TPS-STAR Weekly Analytics Report — {datetime.utcnow().strftime('%Y-%m-%d')}"
+        body = "Attached: weekly analytics report (PDF). See attached for graphs, analysis and recommended next steps."
+        try:
+            send_email(smtp_server, smtp_port, smtp_user, smtp_pass, recipient, subject, body, pdf_path)
+            print('Email sent')
+        except Exception as e:
+            print('Failed to send email:', e)
+            sys.exit(2)
+    else:
+        print('SMTP credentials not found in env; skipping email send. Report available at:', pdf_path)
+
+
+if __name__ == '__main__':
+    main()
+#!/usr/bin/env python3
+"""
 TPS-STAR Weekly Analytics Report Generator
 ==========================================
 
