@@ -25,7 +25,7 @@
   assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | strip
   assign cloudflare_beacon_token= integ.cloudflare_beacon_token| default: integ.Cloudflare_Token        | strip
   assign slack_webhook_url      = integ.slack_webhook_url      | default: integ.Slack_Webhook_URL       | strip
-  assign ahrefs_api_key         = integ.ahrefs_api_key         | default: integ.AHREFS_API_KEY          | strip
+  # ahrefs_api_key is intentionally not exposed in the theme; keep API keys in CI or server-side secrets
   assign domain_principal       = integ.domain                 | default: integ.Domaine_principal       | strip
 
   # FREE Analytics Platforms - Zero Cost, Maximum Value
@@ -61,20 +61,20 @@
 
 <script id="tps-integrations" type="application/json">
   {
-    "gtm_id": "{{ gtm_id | escape }}",
-    "ga4": "{{ ga4_token | escape }}",
-    "meta_pixel_id": "{{ meta_pixel_id | escape }}",
-    "sentry_dsn": "{{ sentry_dsn | escape }}",
-    "cloudflare_beacon_token": "{{ cloudflare_beacon_token | escape }}",
-    "shopify_pixel": "{{ shopify_pixel | escape }}",
-    "clarity_id": "{{ clarity_id | escape }}",
-    "hotjar_id": "{{ hotjar_id | escape }}",
-    "amplitude_key": "{{ amplitude_key | escape }}",
-    "tiktok_pixel": "{{ tiktok_pixel | escape }}",
-    "snapchat_pixel": "{{ snapchat_pixel | escape }}",
-    "pinterest_tag": "{{ pinterest_tag | escape }}",
-    "mixpanel_token": "{{ mixpanel_token | escape }}",
-    "domain": "{{ domain_principal | default: shop.permanent_domain | escape }}"
+    "gtm_id": {{ gtm_id | json }},
+    "ga4": {{ ga4_token | json }},
+    "meta_pixel_id": {{ meta_pixel_id | json }},
+    "sentry_dsn": {{ sentry_dsn | json }},
+    "cloudflare_beacon_token": {{ cloudflare_beacon_token | json }},
+    "shopify_pixel": {{ shopify_pixel | json }},
+    "clarity_id": {{ clarity_id | json }},
+    "hotjar_id": {{ hotjar_id | json }},
+    "amplitude_key": {{ amplitude_key | json }},
+    "tiktok_pixel": {{ tiktok_pixel | json }},
+    "snapchat_pixel": {{ snapchat_pixel | json }},
+    "pinterest_tag": {{ pinterest_tag | json }},
+    "mixpanel_token": {{ mixpanel_token | json }},
+    "domain": {{ domain_principal | default: shop.permanent_domain | json }}
   }
 </script>
 
@@ -154,20 +154,20 @@
           tracesSampleRate: 1.0,
           replaysSessionSampleRate: 0.1,
           replaysOnErrorSampleRate: 1.0,
-          environment: "{{ request.locale.iso_code | upcase }}",
+          environment: {{ request.locale.iso_code | upcase | json }},
           release: "tps-star@{{ 'now' | date: '%Y-%m-%d' }}",
           autoSessionTracking: true,
           initialScope: {
             tags: {
-              "store": "{{ shop.permanent_domain }}",
+              "store": {{ shop.permanent_domain | json }},
               "theme": "tps-star",
-              "locale": "{{ request.locale.iso_code }}",
-              "page_type": "{{ request.page_type }}",
+              "locale": {{ request.locale.iso_code | json }},
+              "page_type": {{ request.page_type | json }},
               "device_type": "web"
             },
             user: {
-              id: "{{ customer.id | default: 'anonymous' }}",
-              email: "{{ customer.email | default: null }}"
+              id: {{ customer.id | default: 'anonymous' | json }},
+              email: {{ customer.email | default: null | json }}
             }
           }
         });
@@ -299,16 +299,16 @@
       if (window.dataLayer && cfg.gtm_id) {
         window.dataLayer.push({
           'event': 'tps_page_ready',
-          'page_type': '{{ request.page_type }}',
-          'shop_currency': '{{ shop.currency }}',
+          'page_type': {{ request.page_type | json }},
+          'shop_currency': {{ shop.currency | json }},
           'customer_logged_in': {{ customer.id | default: false }},
-          'page_title': '{{ page_title | escape }}'
+          'page_title': {{ page_title | json }}
         });
       } else if (window.gtag && cfg.ga4_token) {
         gtag('event', 'page_view', {
-          'page_type': '{{ request.page_type }}',
-          'store_name': '{{ shop.name | escape }}',
-          'locale': '{{ request.locale.iso_code }}',
+          'page_type': {{ request.page_type | json }},
+          'store_name': {{ shop.name | json }},
+          'locale': {{ request.locale.iso_code | json }},
           'theme': 'tps-star'
         });
       }
