@@ -1,3 +1,7 @@
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib
+matplotlib.use("Agg")
 #!/usr/bin/env python3
 """
 generate_weekly_report.py
