@@ -14,8 +14,6 @@ Notes:
   so the report still runs.
 """
 import os
-import sys
-import io
 import smtplib
 import json
 from datetime import datetime, timedelta
@@ -25,6 +23,106 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from email.message import EmailMessage
 from email.utils import formatdate
+from email.utils import make_msgid
+import base64
+from pathlib import Path
+import requests
+import warnings
+
+# Optional visualization libs
+try:
+    import seaborn as sns
+    _HAS_SEABORN = True
+except Exception:
+    sns = None
+    _HAS_SEABORN = False
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    _HAS_PLOTLY = True
+except Exception:
+    go = None
+    px = None
+    make_subplots = None
+    _HAS_PLOTLY = False
+
+warnings.filterwarnings('ignore')
+
+# Set up styling (apply once)
+if _HAS_SEABORN:
+    try:
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+    except Exception:
+        plt.style.use('default')
+else:
+    plt.style.use('default')
+
+from typing import Dict, List, Any
+
+
+def _save_delivery_response(payload: dict):
+    """Save a small JSON file with delivery provider response for debugging.
+
+    Writes to reports/delivery-response-<timestamp>.json. Non-fatal on failure.
+    """
+    try:
+        os.makedirs('reports', exist_ok=True)
+        ts = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+        fn = f'reports/delivery-response-{ts}.json'
+        with open(fn, 'w', encoding='utf-8') as fh:
+            json.dump(payload, fh, indent=2, default=str)
+        print('Saved delivery response to', fn)
+    except Exception as e:
+        print('Warning: failed to save delivery response:', e)
+
+
+# Auto-load .env if present so local runs don't require manual `source .env`.
+def _load_dotenv_if_exists(filenames=None):
+    """Load simple KEY=VALUE pairs from the first existing .env file found.
+
+    Search order (first match wins):
+      - CWD/.env
+      - script directory/.env
+      - repository root (script dir parent)/.env
+
+    Does not overwrite existing environment variables.
+    """
+    try:
+        if filenames is None:
+            filenames = [
+                Path(os.getcwd()) / '.env',
+                Path(__file__).resolve().parent / '.env',
+                Path(__file__).resolve().parent.parent / '.env'
+            ]
+        for p in filenames:
+            if p.exists():
+                loaded = 0
+                with p.open('r', encoding='utf-8') as fh:
+                    for raw in fh:
+                        line = raw.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if '=' not in line:
+                            continue
+                        k, v = line.split('=', 1)
+                        k = k.strip()
+                        v = v.strip()
+                        # remove surrounding quotes
+                        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                            v = v[1:-1]
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+                            loaded += 1
+                print(f'Loaded {loaded} vars from {p}')
+                return
+    except Exception as e:
+        print('Warning: failed to read .env file:', e)
+
+
+# Try to load .env automatically for local dev convenience
+_load_dotenv_if_exists()
 
 
 def sample_timeseries(days=14, base=100, noise=0.15):
@@ -82,9 +180,10 @@ def analyze_series(s: pd.Series, name: str):
 
 def plot_series(ax, s: pd.Series, title: str, ylabel: str = ''):
     ax.plot(s.index, s.values, marker='o', linestyle='-')
-    ax.set_title(title)
+    ax.set_title(title, pad=20)
     ax.set_ylabel(ylabel)
     ax.grid(True, alpha=0.3)
+    ax.margins(y=0.15)
 
 
 def build_pdf(out_path: str):
@@ -107,7 +206,7 @@ def build_pdf(out_path: str):
 
     with PdfPages(out_path) as pdf:
         # Cover page
-        fig = plt.figure(figsize=(11.7, 8.3))
+        fig = plt.figure(figsize=(11.7, 10))
         plt.axis('off')
         title = "TPS-STAR — Weekly Analytics Report"
         date_str = datetime.utcnow().strftime('%Y-%m-%d')
@@ -121,7 +220,7 @@ def build_pdf(out_path: str):
 
         # One section per tracker
         for name, ylabel, series in sections:
-            fig, ax = plt.subplots(figsize=(11.7, 8.3))
+            fig, ax = plt.subplots(figsize=(11.7, 10))
             plot_series(ax, series, name, ylabel)
             # analysis
             analysis, critical = analyze_series(series, name)
@@ -140,7 +239,12 @@ def build_pdf(out_path: str):
             elif 'Ahrefs' in name:
                 text += "- Account plan insufficient for v3 Site Explorer if you see errors.\n- Review backlinks/ref-domains and prioritize high-authority links."
 
-            ax.text(0.02, 0.02, text, transform=ax.transAxes, fontsize=9, va='bottom')
+            plt.figtext(0.1, 0.05, text, 
+                        fontsize=10, 
+                        wrap=True, 
+                        verticalalignment='bottom', 
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgray", alpha=0.8))
+            plt.subplots_adjust(bottom=0.35, top=0.92)
             pdf.savefig()
             plt.close()
 
@@ -148,7 +252,7 @@ def build_pdf(out_path: str):
                 critical_points.append((name, analysis))
 
         # Conclusion page
-        fig = plt.figure(figsize=(11.7, 8.3))
+        plt.figure(figsize=(11.7, 10))
         plt.axis('off')
         plt.text(0.02, 0.88, "Conclusion & Strategy", fontsize=18, weight='bold')
         y = 0.82
@@ -182,16 +286,186 @@ def send_email(smtp_server, smtp_port, username, password, recipient, subject, b
     msg['To'] = recipient
     msg['Date'] = formatdate(localtime=True)
     msg['Subject'] = subject
+    # Ensure we have a Message-ID for tracking bounces
+    try:
+        msg_id = make_msgid()
+        msg['Message-ID'] = msg_id
+    except Exception:
+        msg_id = None
     msg.set_content(body)
 
     with open(attachment_path, 'rb') as f:
         data = f.read()
     msg.add_attachment(data, maintype='application', subtype='pdf', filename=os.path.basename(attachment_path))
+    # Try to send the email but handle common network/SMTP errors gracefully.
+    try:
+        # Save raw MIME for support/traceability before sending
+        try:
+            out_dir = os.path.join('reports', 'sent-messages')
+            os.makedirs(out_dir, exist_ok=True)
+            if msg_id:
+                safe_id = msg_id.strip('<>')
+            else:
+                safe_id = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            eml_path = os.path.join(out_dir, f'message-{safe_id}.eml')
+            with open(eml_path, 'wb') as ef:
+                ef.write(msg.as_bytes())
+            print('Saved outgoing message to', eml_path)
+        except Exception as e:
+            print('Warning: failed to save outgoing MIME:', e)
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as s:
+            s.starttls()
+            s.login(username, password)
+            s.send_message(msg)
+        # Save a small delivery response JSON for tracing (no provider id available for plain SMTP)
+        try:
+            resp = {
+                'provider': 'smtp',
+                'status': 'sent',
+                'recipient': recipient,
+                'message_id': msg_id,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+            _save_delivery_response(resp)
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        # Print a clear, actionable message for diagnostics but do not raise.
+        print('Email send failed:', repr(e))
+        print('Check SMTP_SERVER/SMTP_PORT/SMTP_USERNAME/SMTP_PASSWORD and network connectivity.')
+        try:
+            resp = {
+                'provider': 'smtp',
+                'status': 'error',
+                'error': repr(e),
+                'recipient': recipient,
+                'message_id': msg_id,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+            _save_delivery_response(resp)
+        except Exception:
+            pass
+        return False
 
-    with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as s:
-        s.starttls()
-        s.login(username, password)
-        s.send_message(msg)
+
+def upload_file_to_slack(token: str, channel: str, file_path: str, title: str = None) -> bool:
+    """Upload a file to Slack using the Web API (files.upload). Returns True on success."""
+    if not token or not channel:
+        print('Slack token or channel not provided')
+        return False
+    url = 'https://slack.com/api/files.upload'
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {'channels': channel}
+    if title:
+        data['title'] = title
+    try:
+        with open(file_path, 'rb') as f:
+            files = {'file': (os.path.basename(file_path), f, 'application/pdf')}
+            r = requests.post(url, headers=headers, data=data, files=files, timeout=120)
+        j = r.json()
+        if not j.get('ok'):
+            print('Slack files.upload failed:', j.get('error'))
+            return False
+        print('Uploaded report to Slack, file id:', j.get('file', {}).get('id'))
+        return True
+    except Exception as e:
+        print('Slack upload error:', repr(e))
+        return False
+
+
+def upload_to_transfersh(file_path: str) -> str | None:
+    """Upload a file to transfer.sh and return a public URL, or None on failure."""
+    dest = f"https://transfer.sh/{os.path.basename(file_path)}"
+    try:
+        with open(file_path, 'rb') as f:
+            r = requests.put(dest, data=f, timeout=120)
+        if r.status_code in (200, 201):
+            return r.text.strip()
+        print('transfer.sh upload failed:', r.status_code, r.text[:200])
+        return None
+    except Exception as e:
+        print('transfer.sh upload error:', repr(e))
+        return None
+
+
+def send_via_sendgrid(api_key: str, sender: str, recipient: str, subject: str, body: str, attachment_path: str) -> bool:
+    """Send an email with attachment using SendGrid v3 API as a fallback.
+
+    Returns True on success.
+    """
+    if not api_key:
+        print('SendGrid API key not provided')
+        return False
+    url = 'https://api.sendgrid.com/v3/mail/send'
+    headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+    attachments = []
+    try:
+        with open(attachment_path, 'rb') as f:
+            b = f.read()
+        attachments.append({
+            'content': base64.b64encode(b).decode('ascii'),
+            'filename': os.path.basename(attachment_path),
+            'type': 'application/pdf',
+            'disposition': 'attachment'
+        })
+    except Exception as e:
+        print('Failed to read attachment for SendGrid:', e)
+        return False
+
+    payload = {
+        'personalizations': [{'to': [{'email': recipient}], 'subject': subject}],
+        'from': {'email': sender},
+        'content': [{'type': 'text/plain', 'value': body}],
+        'attachments': attachments
+    }
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        # Persist provider response for debugging
+        try:
+            resp = {
+                'provider': 'sendgrid',
+                'status_code': r.status_code,
+                'text_snippet': (r.text[:1000] if r.text else None),
+                'recipient': recipient,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+            _save_delivery_response(resp)
+        except Exception:
+            pass
+
+        if r.status_code in (200, 202):
+            print('SendGrid accepted the message (status)', r.status_code)
+            return True
+        else:
+            print('SendGrid send failed:', r.status_code, r.text[:500])
+            return False
+    except Exception as e:
+        print('SendGrid request error:', repr(e))
+        try:
+            resp = {
+                'provider': 'sendgrid',
+                'status': 'error',
+                'error': repr(e),
+                'recipient': recipient,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+            _save_delivery_response(resp)
+        except Exception:
+            pass
+        return False
+
+
+def post_webhook_message(webhook_url: str, text: str) -> bool:
+    try:
+        r = requests.post(webhook_url, json={'text': text}, timeout=10)
+        if r.status_code >= 200 and r.status_code < 300:
+            return True
+        print('Webhook post failed:', r.status_code, r.text[:200])
+        return False
+    except Exception as e:
+        print('Webhook post error:', repr(e))
+        return False
 
 
 def main():
@@ -211,55 +485,70 @@ def main():
     smtp_pass = os.environ.get('SMTP_PASSWORD')
     recipient = os.environ.get('EMAIL_RECIPIENT', 'hello@thepetsociety.fr')
 
-    if smtp_server and smtp_user and smtp_pass:
-        print('Sending email to', recipient)
-        subject = f"TPS-STAR Weekly Analytics Report — {datetime.utcnow().strftime('%Y-%m-%d')}"
-        body = "Attached: weekly analytics report (PDF). See attached for graphs, analysis and recommended next steps."
+    # Prefer SendGrid in CI when available (more reliable / less DNS dependency)
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY')
+    sendgrid_sender = os.environ.get('SENDGRID_SENDER')
+
+    subject = f"TPS-STAR Weekly Analytics Report — {datetime.utcnow().strftime('%Y-%m-%d')}"
+    body = "Attached: weekly analytics report (PDF). See attached for graphs, analysis and recommended next steps."
+
+    emailed = False
+    # Try SendGrid first when configured
+    if sendgrid_key and sendgrid_sender and pdf_path:
         try:
-            send_email(smtp_server, smtp_port, smtp_user, smtp_pass, recipient, subject, body, pdf_path)
-            print('Email sent')
+            print('Attempting SendGrid delivery to', recipient)
+            sg_ok = send_via_sendgrid(sendgrid_key, sendgrid_sender, recipient, subject, body, pdf_path)
+            if sg_ok:
+                print('SendGrid delivered the message')
+                emailed = True
+            else:
+                print('SendGrid attempt returned failure; will try SMTP if configured')
         except Exception as e:
-            print('Failed to send email:', e)
-            sys.exit(2)
+            print('SendGrid attempt raised an exception:', repr(e))
+
+    # If SendGrid not used or failed, try SMTP when configured
+    if not emailed and smtp_server and smtp_user and smtp_pass and pdf_path:
+        try:
+            print('Attempting SMTP delivery to', recipient)
+            ok = send_email(smtp_server, smtp_port, smtp_user, smtp_pass, recipient, subject, body, pdf_path)
+            if ok:
+                print('Email sent via SMTP')
+                emailed = True
+            else:
+                print('SMTP send failed; check credentials and network. Report generation succeeded.')
+        except Exception as e:
+            print('SMTP send raised an exception:', repr(e))
+
+    if not emailed:
+        print('No successful email delivery. Report available at:', pdf_path)
+    # Slack delivery (optional)
+    slack_token = os.environ.get('SLACK_BOT_TOKEN')
+    slack_channel = os.environ.get('SLACK_CHANNEL')
+    slack_webhook = os.environ.get('SLACK_WEBHOOK_URL')
+    if slack_token and slack_channel:
+        print('Uploading PDF to Slack channel', slack_channel)
+        ok = upload_file_to_slack(slack_token, slack_channel, pdf_path, title=f'TPS-STAR Weekly Report {datetime.utcnow().strftime("%Y-%m-%d")}')
+        if ok:
+            print('Report uploaded to Slack')
+        else:
+            print('Failed to upload report to Slack via files.upload')
+    elif slack_webhook:
+        print('Uploading PDF to transfer.sh for webhook delivery')
+        url = upload_to_transfersh(pdf_path)
+        if url:
+            text = f"TPS-STAR Weekly report generated: {url} (expires per transfer.sh policy)"
+            posted = post_webhook_message(slack_webhook, text)
+            if posted:
+                print('Posted report link to Slack via webhook')
+            else:
+                print('Failed to post report link to Slack webhook')
+        else:
+            print('Failed to upload report to transfer.sh; cannot post webhook link')
     else:
         print('SMTP credentials not found in env; skipping email send. Report available at:', pdf_path)
 
-
-if __name__ == '__main__':
-    main()
-#!/usr/bin/env python3
-"""
-TPS-STAR Weekly Analytics Report Generator
-==========================================
-
-Generates comprehensive weekly business intelligence reports by:
-- Collecting data from all analytics platforms (GA4, Amplitude, Hotjar, Clarity, Sentry)
-- Creating beautiful visualizations and charts
-- Providing actionable insights and recommendations
-- Generating executive summaries with KPI trends
-
-Author: TPS-STAR Analytics Team
-"""
-
-import os
-import json
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
-import pytz
-import requests
-from typing import Dict, List, Any
-import warnings
-warnings.filterwarnings('ignore')
-
-# Set up styling
-plt.style.use('seaborn-v0_8')
-sns.set_palette("husl")
+# Disabled duplicate procedural entrypoint. Use the class-based
+# TPSAnalyticsReporter at the end of this file as the single entrypoint.
 
 class TPSAnalyticsReporter:
     def __init__(self):
@@ -401,222 +690,440 @@ class TPSAnalyticsReporter:
     def create_kpi_overview_chart(self):
         """Create KPI overview dashboard"""
         print("📊 Creating KPI overview chart...")
+        # If plotly is available, use interactive dashboards; otherwise fall back to matplotlib
+        if _HAS_PLOTLY and make_subplots is not None and go is not None:
+            try:
+                fig = make_subplots(
+                    rows=2, cols=3,
+                    subplot_titles=('Sessions Trend', 'Revenue Growth', 'Conversion Funnel',
+                                  'Traffic Sources', 'User Retention', 'Error Rate'),
+                    specs=[[{"secondary_y": True}, {"secondary_y": True}, {}],
+                           [{"type": "domain"}, {}, {"secondary_y": True}]]
+                )
 
-        fig = make_subplots(
-            rows=2, cols=3,
-            subplot_titles=('Sessions Trend', 'Revenue Growth', 'Conversion Funnel',
-                          'Traffic Sources', 'User Retention', 'Error Rate'),
-            specs=[[{"secondary_y": True}, {"secondary_y": True}, {}],
-                   [{}, {}, {"secondary_y": True}]]
-        )
+                # Sessions trend
+                days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                sessions = self.report_data['ga4']['daily_sessions']
+                fig.add_trace(
+                    go.Scatter(x=days, y=sessions, mode='lines+markers',
+                              name='Sessions', line=dict(color='#2E86C1', width=3)),
+                    row=1, col=1
+                )
 
-        # Sessions trend
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        sessions = self.report_data['ga4']['daily_sessions']
-        fig.add_trace(
-            go.Scatter(x=days, y=sessions, mode='lines+markers',
-                      name='Sessions', line=dict(color='#2E86C1', width=3)),
-            row=1, col=1
-        )
+                # Revenue growth (mock week-over-week)
+                revenue_data = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
+                fig.add_trace(
+                    go.Bar(x=days, y=revenue_data, name='Revenue (€)',
+                           marker_color='#28B463'),
+                    row=1, col=2
+                )
 
-        # Revenue growth (mock week-over-week)
-        revenue_data = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
-        fig.add_trace(
-            go.Bar(x=days, y=revenue_data, name='Revenue (€)',
-                   marker_color='#28B463'),
-            row=1, col=2
-        )
+                # Conversion funnel
+                funnel_data = self.report_data['amplitude']['conversion_funnel']
+                funnel_labels = list(funnel_data.keys())
+                funnel_values = list(funnel_data.values())
 
-        # Conversion funnel
-        funnel_data = self.report_data['amplitude']['conversion_funnel']
-        funnel_labels = list(funnel_data.keys())
-        funnel_values = list(funnel_data.values())
+                fig.add_trace(
+                    go.Funnel(
+                        y=funnel_labels,
+                        x=funnel_values,
+                        textinfo="value+percent initial",
+                        marker={"color": ["#3498DB", "#E74C3C", "#F39C12", "#27AE60"]}
+                    ),
+                    row=1, col=3
+                )
 
-        fig.add_trace(
-            go.Funnel(
-                y=funnel_labels,
-                x=funnel_values,
-                textinfo="value+percent initial",
-                marker={"color": ["#3498DB", "#E74C3C", "#F39C12", "#27AE60"]}
-            ),
-            row=1, col=3
-        )
+                # Traffic sources pie chart
+                sources = list(self.report_data['ga4']['traffic_sources'].keys())
+                values = list(self.report_data['ga4']['traffic_sources'].values())
 
-        # Traffic sources pie chart
-        sources = list(self.report_data['ga4']['traffic_sources'].keys())
-        values = list(self.report_data['ga4']['traffic_sources'].values())
+                fig.add_trace(
+                    go.Pie(labels=sources, values=values, name="Traffic Sources",
+                           marker_colors=['#3498DB', '#E74C3C', '#F39C12', '#27AE60', '#9B59B6', '#E67E22']),
+                    row=2, col=1
+                )
 
-        fig.add_trace(
-            go.Pie(labels=sources, values=values, name="Traffic Sources",
-                   marker_colors=['#3498DB', '#E74C3C', '#F39C12', '#27AE60', '#9B59B6', '#E67E22']),
-            row=2, col=1
-        )
+                # User retention
+                retention = self.report_data['amplitude']['user_retention']
+                fig.add_trace(
+                    go.Bar(x=list(retention.keys()), y=list(retention.values()),
+                           name='Retention Rate', marker_color='#8E44AD'),
+                    row=2, col=2
+                )
 
-        # User retention
-        retention = self.report_data['amplitude']['user_retention']
-        fig.add_trace(
-            go.Bar(x=list(retention.keys()), y=list(retention.values()),
-                   name='Retention Rate', marker_color='#8E44AD'),
-            row=2, col=2
-        )
+                # Error rate trend
+                error_days = days
+                error_rates = [np.random.uniform(0.01, 0.05) for _ in range(7)]
+                fig.add_trace(
+                    go.Scatter(x=error_days, y=error_rates, mode='lines+markers',
+                              name='Error Rate', line=dict(color='#E74C3C', width=2)),
+                    row=2, col=3
+                )
 
-        # Error rate trend
-        error_days = days
-        error_rates = [np.random.uniform(0.01, 0.05) for _ in range(7)]
-        fig.add_trace(
-            go.Scatter(x=error_days, y=error_rates, mode='lines+markers',
-                      name='Error Rate', line=dict(color='#E74C3C', width=2)),
-            row=2, col=3
-        )
+                fig.update_layout(
+                    title_text="🎯 TPS-STAR Weekly KPI Dashboard",
+                    title_x=0.5,
+                    height=800,
+                    showlegend=False,
+                    template="plotly_white",
+                    font=dict(size=12)
+                )
 
-        fig.update_layout(
-            title_text="🎯 TPS-STAR Weekly KPI Dashboard",
-            title_x=0.5,
-            height=800,
-            showlegend=False,
-            template="plotly_white",
-            font=dict(size=12)
-        )
+                fig.write_html("reports/charts/kpi_dashboard.html")
+                try:
+                    fig.write_image("reports/charts/kpi_dashboard.png", width=1400, height=800)
+                except Exception:
+                    # If kaleido/engine not available, write only html
+                    pass
+            except Exception as e:
+                print('Plotly KPI dashboard build failed; falling back to matplotlib:', repr(e))
+                # Matplotlib fallback: simple 2x3 grid
+                days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                sessions = self.report_data['ga4']['daily_sessions']
+                revenue_data = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
+                funnel_data = self.report_data['amplitude']['conversion_funnel']
+                sources = list(self.report_data['ga4']['traffic_sources'].keys())
+                values = list(self.report_data['ga4']['traffic_sources'].values())
+                retention = self.report_data['amplitude']['user_retention']
+                error_rates = [np.random.uniform(0.01, 0.05) for _ in range(7)]
 
-        fig.write_html("reports/charts/kpi_dashboard.html")
-        fig.write_image("reports/charts/kpi_dashboard.png", width=1400, height=800)
+                fig, axes = plt.subplots(2, 3, figsize=(14, 9))
+                # Sessions
+                axes[0, 0].plot(days, sessions, marker='o')
+                axes[0, 0].set_title('Sessions Trend')
+
+                # Revenue
+                axes[0, 1].bar(days, revenue_data, color='#28B463')
+                axes[0, 1].set_title('Revenue Growth')
+
+                # Funnel (horizontal bar)
+                labels = list(funnel_data.keys())
+                vals = list(funnel_data.values())
+                axes[0, 2].barh(labels, vals, color=['#3498DB', '#E74C3C', '#F39C12', '#27AE60'])
+                axes[0, 2].set_title('Conversion Funnel')
+
+                # Traffic sources (pie)
+                axes[1, 0].pie(values, labels=sources, autopct='%1.1f%%')
+                axes[1, 0].set_title('Traffic Sources')
+
+                # Retention
+                axes[1, 1].bar(list(retention.keys()), list(retention.values()), color='#8E44AD')
+                axes[1, 1].set_title('User Retention')
+
+                # Error rate
+                axes[1, 2].plot(days, error_rates, marker='o', color='#E74C3C')
+                axes[1, 2].set_title('Error Rate')
+
+                plt.tight_layout()
+                png_path = 'reports/charts/kpi_dashboard.png'
+                html_path = 'reports/charts/kpi_dashboard.html'
+                fig.savefig(png_path, dpi=150)
+                plt.close(fig)
+                # Simple HTML wrapper embedding the PNG
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write("<html><body><img src='kpi_dashboard.png' style='max-width:100%' /></body></html>")
+        else:
+            # Matplotlib fallback: simple 2x3 grid
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            sessions = self.report_data['ga4']['daily_sessions']
+            revenue_data = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
+            funnel_data = self.report_data['amplitude']['conversion_funnel']
+            sources = list(self.report_data['ga4']['traffic_sources'].keys())
+            values = list(self.report_data['ga4']['traffic_sources'].values())
+            retention = self.report_data['amplitude']['user_retention']
+            error_rates = [np.random.uniform(0.01, 0.05) for _ in range(7)]
+
+            fig, axes = plt.subplots(2, 3, figsize=(14, 9))
+            # Sessions
+            axes[0, 0].plot(days, sessions, marker='o')
+            axes[0, 0].set_title('Sessions Trend')
+
+            # Revenue
+            axes[0, 1].bar(days, revenue_data, color='#28B463')
+            axes[0, 1].set_title('Revenue Growth')
+
+            # Funnel (horizontal bar)
+            labels = list(funnel_data.keys())
+            vals = list(funnel_data.values())
+            axes[0, 2].barh(labels, vals, color=['#3498DB', '#E74C3C', '#F39C12', '#27AE60'])
+            axes[0, 2].set_title('Conversion Funnel')
+
+            # Traffic sources (pie)
+            axes[1, 0].pie(values, labels=sources, autopct='%1.1f%%')
+            axes[1, 0].set_title('Traffic Sources')
+
+            # Retention
+            axes[1, 1].bar(list(retention.keys()), list(retention.values()), color='#8E44AD')
+            axes[1, 1].set_title('User Retention')
+
+            # Error rate
+            axes[1, 2].plot(days, error_rates, marker='o', color='#E74C3C')
+            axes[1, 2].set_title('Error Rate')
+
+            plt.tight_layout()
+            png_path = 'reports/charts/kpi_dashboard.png'
+            html_path = 'reports/charts/kpi_dashboard.html'
+            fig.savefig(png_path, dpi=150)
+            plt.close(fig)
+            # Simple HTML wrapper embedding the PNG
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write("<html><body><img src='kpi_dashboard.png' style='max-width:100%' /></body></html>")
 
     def create_user_behavior_analysis(self):
         """Create detailed user behavior analysis"""
         print("👥 Creating user behavior analysis...")
+        if _HAS_PLOTLY and make_subplots is not None and go is not None:
+            try:
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    subplot_titles=('Page Scroll Depth', 'Top Clicked Elements',
+                                  'Session Duration Distribution', 'Device Usage'),
+                    # device usage (bottom-right) is a pie -> use 'domain' type there
+                    specs=[[{}, {}], [{}, {"type": "domain"}]]
+                )
 
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=('Page Scroll Depth', 'Top Clicked Elements',
-                          'Session Duration Distribution', 'Device Usage'),
-            specs=[[{}, {}], [{}, {}]]
-        )
+                # Scroll depth
+                scroll_data = self.report_data['hotjar']['scroll_depth']
+                scroll_depths = list(scroll_data.keys())
+                scroll_percentages = [v * 100 for v in scroll_data.values()]
 
-        # Scroll depth
-        scroll_data = self.report_data['hotjar']['scroll_depth']
-        scroll_depths = list(scroll_data.keys())
-        scroll_percentages = [v * 100 for v in scroll_data.values()]
+                fig.add_trace(
+                    go.Bar(x=scroll_depths, y=scroll_percentages,
+                           name='Scroll Depth', marker_color='#3498DB'),
+                    row=1, col=1
+                )
 
-        fig.add_trace(
-            go.Bar(x=scroll_depths, y=scroll_percentages,
-                   name='Scroll Depth', marker_color='#3498DB'),
-            row=1, col=1
-        )
+                # Top clicked elements
+                clicked_elements = self.report_data['hotjar']['top_clicked_elements']
+                element_names = [item['element'] for item in clicked_elements]
+                click_counts = [item['clicks'] for item in clicked_elements]
 
-        # Top clicked elements
-        clicked_elements = self.report_data['hotjar']['top_clicked_elements']
-        element_names = [item['element'] for item in clicked_elements]
-        click_counts = [item['clicks'] for item in clicked_elements]
+                fig.add_trace(
+                    go.Bar(x=click_counts, y=element_names, orientation='h',
+                           name='Clicks', marker_color='#E74C3C'),
+                    row=1, col=2
+                )
 
-        fig.add_trace(
-            go.Bar(x=click_counts, y=element_names, orientation='h',
-                   name='Clicks', marker_color='#E74C3C'),
-            row=1, col=2
-        )
+                # Session duration distribution
+                durations = np.random.normal(200, 80, 1000)
+                durations = durations[durations > 0]
 
-        # Session duration distribution
-        durations = np.random.normal(200, 80, 1000)
-        durations = durations[durations > 0]
+                fig.add_trace(
+                    go.Histogram(x=durations, nbinsx=20, name='Session Duration',
+                                marker_color='#27AE60'),
+                    row=2, col=1
+                )
 
-        fig.add_trace(
-            go.Histogram(x=durations, nbinsx=20, name='Session Duration',
-                        marker_color='#27AE60'),
-            row=2, col=1
-        )
+                # Device usage (pie chart)
+                devices = ['Mobile', 'Desktop', 'Tablet']
+                device_percentages = [65, 30, 5]
 
-        # Device usage (pie chart)
-        devices = ['Mobile', 'Desktop', 'Tablet']
-        device_percentages = [65, 30, 5]
+                fig.add_trace(
+                    go.Pie(labels=devices, values=device_percentages, name="Devices",
+                           marker_colors=['#F39C12', '#9B59B6', '#E67E22']),
+                    row=2, col=2
+                )
 
-        fig.add_trace(
-            go.Pie(labels=devices, values=device_percentages, name="Devices",
-                   marker_colors=['#F39C12', '#9B59B6', '#E67E22']),
-            row=2, col=2
-        )
+                fig.update_layout(
+                    title_text="👥 User Behavior Deep Dive",
+                    title_x=0.5,
+                    height=700,
+                    showlegend=False,
+                    template="plotly_white"
+                )
 
-        fig.update_layout(
-            title_text="👥 User Behavior Deep Dive",
-            title_x=0.5,
-            height=700,
-            showlegend=False,
-            template="plotly_white"
-        )
+                fig.write_html("reports/charts/user_behavior.html")
+                try:
+                    fig.write_image("reports/charts/user_behavior.png", width=1200, height=700)
+                except Exception:
+                    pass
+            except Exception as e:
+                print('Plotly user behavior chart failed; falling back to matplotlib:', repr(e))
+                # Matplotlib fallback
+                scroll_data = self.report_data['hotjar']['scroll_depth']
+                scroll_depths = list(scroll_data.keys())
+                scroll_percentages = [v * 100 for v in scroll_data.values()]
 
-        fig.write_html("reports/charts/user_behavior.html")
-        fig.write_image("reports/charts/user_behavior.png", width=1200, height=700)
+                clicked_elements = self.report_data['hotjar']['top_clicked_elements']
+                element_names = [item['element'] for item in clicked_elements]
+                click_counts = [item['clicks'] for item in clicked_elements]
+
+                durations = np.random.normal(200, 80, 1000)
+                durations = durations[durations > 0]
+
+                devices = ['Mobile', 'Desktop', 'Tablet']
+                device_percentages = [65, 30, 5]
+
+                fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+                axes[0, 0].bar(scroll_depths, scroll_percentages, color='#3498DB')
+                axes[0, 0].set_title('Page Scroll Depth')
+
+                axes[0, 1].barh(element_names, click_counts, color='#E74C3C')
+                axes[0, 1].set_title('Top Clicked Elements')
+
+                axes[1, 0].hist(durations, bins=20, color='#27AE60')
+                axes[1, 0].set_title('Session Duration Distribution')
+
+                axes[1, 1].pie(device_percentages, labels=devices, autopct='%1.0f%%')
+                axes[1, 1].set_title('Device Usage')
+
+                plt.tight_layout()
+                png_path = 'reports/charts/user_behavior.png'
+                html_path = 'reports/charts/user_behavior.html'
+                fig.savefig(png_path, dpi=150)
+                plt.close(fig)
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write("<html><body><img src='user_behavior.png' style='max-width:100%' /></body></html>")
+        else:
+            # Matplotlib fallback
+            scroll_data = self.report_data['hotjar']['scroll_depth']
+            scroll_depths = list(scroll_data.keys())
+            scroll_percentages = [v * 100 for v in scroll_data.values()]
+
+            clicked_elements = self.report_data['hotjar']['top_clicked_elements']
+            element_names = [item['element'] for item in clicked_elements]
+            click_counts = [item['clicks'] for item in clicked_elements]
+
+            durations = np.random.normal(200, 80, 1000)
+            durations = durations[durations > 0]
+
+            devices = ['Mobile', 'Desktop', 'Tablet']
+            device_percentages = [65, 30, 5]
+
+            fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+            axes[0, 0].bar(scroll_depths, scroll_percentages, color='#3498DB')
+            axes[0, 0].set_title('Page Scroll Depth')
+
+            axes[0, 1].barh(element_names, click_counts, color='#E74C3C')
+            axes[0, 1].set_title('Top Clicked Elements')
+
+            axes[1, 0].hist(durations, bins=20, color='#27AE60')
+            axes[1, 0].set_title('Session Duration Distribution')
+
+            axes[1, 1].pie(device_percentages, labels=devices, autopct='%1.0f%%')
+            axes[1, 1].set_title('Device Usage')
+
+            plt.tight_layout()
+            png_path = 'reports/charts/user_behavior.png'
+            html_path = 'reports/charts/user_behavior.html'
+            fig.savefig(png_path, dpi=150)
+            plt.close(fig)
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write("<html><body><img src='user_behavior.png' style='max-width:100%' /></body></html>")
 
     def create_ecommerce_performance_chart(self):
         """Create e-commerce performance analysis"""
         print("🛒 Creating e-commerce performance chart...")
+        if _HAS_PLOTLY and make_subplots is not None and go is not None:
+            fig = make_subplots(
+                rows=2, cols=2,
+                subplot_titles=('Revenue by Day', 'Product Performance',
+                              'Cart Abandonment Analysis', 'Customer Segments'),
+                # Customer Segments (bottom-right) is a pie chart -> 'domain'
+                specs=[[{"secondary_y": True}, {}], [{}, {"type": "domain"}]]
+            )
 
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=('Revenue by Day', 'Product Performance',
-                          'Cart Abandonment Analysis', 'Customer Segments'),
-            specs=[[{"secondary_y": True}, {}], [{}, {}]]
-        )
+            # Revenue by day with transactions
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            revenue = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
+            transactions = [12, 15, 11, 18, 22, 17, 19]
 
-        # Revenue by day with transactions
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        revenue = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
-        transactions = [12, 15, 11, 18, 22, 17, 19]
+            fig.add_trace(
+                go.Bar(x=days, y=revenue, name='Revenue (€)',
+                       marker_color='#27AE60'),
+                row=1, col=1
+            )
 
-        fig.add_trace(
-            go.Bar(x=days, y=revenue, name='Revenue (€)',
-                   marker_color='#27AE60'),
-            row=1, col=1
-        )
+            fig.add_trace(
+                go.Scatter(x=days, y=transactions, mode='lines+markers',
+                          name='Transactions', line=dict(color='#E74C3C', width=3)),
+                row=1, col=1, secondary_y=True
+            )
 
-        fig.add_trace(
-            go.Scatter(x=days, y=transactions, mode='lines+markers',
-                      name='Transactions', line=dict(color='#E74C3C', width=3)),
-            row=1, col=1, secondary_y=True
-        )
+            # Product performance
+            products = ['Premium Collar', 'Dog Leash', 'Pet Treats', 'Cat Toy', 'Pet Bed']
+            product_revenue = [1200, 800, 600, 400, 350]
 
-        # Product performance
-        products = ['Premium Collar', 'Dog Leash', 'Pet Treats', 'Cat Toy', 'Pet Bed']
-        product_revenue = [1200, 800, 600, 400, 350]
+            fig.add_trace(
+                go.Bar(x=products, y=product_revenue, name='Product Revenue',
+                       marker_color='#3498DB'),
+                row=1, col=2
+            )
 
-        fig.add_trace(
-            go.Bar(x=products, y=product_revenue, name='Product Revenue',
-                   marker_color='#3498DB'),
-            row=1, col=2
-        )
+            # Cart abandonment funnel
+            cart_funnel = ['Add to Cart', 'View Cart', 'Begin Checkout', 'Complete Purchase']
+            cart_values = [456, 298, 198, 67]
 
-        # Cart abandonment funnel
-        cart_funnel = ['Add to Cart', 'View Cart', 'Begin Checkout', 'Complete Purchase']
-        cart_values = [456, 298, 198, 67]
+            fig.add_trace(
+                go.Funnel(
+                    y=cart_funnel,
+                    x=cart_values,
+                    textinfo="value+percent initial",
+                    marker={"color": ["#F39C12", "#E67E22", "#D35400", "#E74C3C"]}
+                ),
+                row=2, col=1
+            )
 
-        fig.add_trace(
-            go.Funnel(
-                y=cart_funnel,
-                x=cart_values,
-                textinfo="value+percent initial",
-                marker={"color": ["#F39C12", "#E67E22", "#D35400", "#E74C3C"]}
-            ),
-            row=2, col=1
-        )
+            # Customer segments
+            segments = ['New Customers', 'Returning', 'VIP Customers']
+            segment_values = [65, 28, 7]
 
-        # Customer segments
-        segments = ['New Customers', 'Returning', 'VIP Customers']
-        segment_values = [65, 28, 7]
+            fig.add_trace(
+                go.Pie(labels=segments, values=segment_values, name="Customer Segments",
+                       marker_colors=['#3498DB', '#E74C3C', '#F1C40F']),
+                row=2, col=2
+            )
 
-        fig.add_trace(
-            go.Pie(labels=segments, values=segment_values, name="Customer Segments",
-                   marker_colors=['#3498DB', '#E74C3C', '#F1C40F']),
-            row=2, col=2
-        )
+            fig.update_layout(
+                title_text="🛒 E-commerce Performance Analytics",
+                title_x=0.5,
+                height=700,
+                showlegend=False,
+                template="plotly_white"
+            )
 
-        fig.update_layout(
-            title_text="🛒 E-commerce Performance Analytics",
-            title_x=0.5,
-            height=700,
-            showlegend=False,
-            template="plotly_white"
-        )
+            fig.write_html("reports/charts/ecommerce_performance.html")
+            try:
+                fig.write_image("reports/charts/ecommerce_performance.png", width=1200, height=700)
+            except Exception:
+                pass
+        else:
+            # Matplotlib fallback
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            revenue = [2800, 3200, 2900, 3800, 4200, 3600, 4100]
+            transactions = [12, 15, 11, 18, 22, 17, 19]
 
-        fig.write_html("reports/charts/ecommerce_performance.html")
-        fig.write_image("reports/charts/ecommerce_performance.png", width=1200, height=700)
+            products = ['Premium Collar', 'Dog Leash', 'Pet Treats', 'Cat Toy', 'Pet Bed']
+            product_revenue = [1200, 800, 600, 400, 350]
+
+            cart_funnel = ['Add to Cart', 'View Cart', 'Begin Checkout', 'Complete Purchase']
+            cart_values = [456, 298, 198, 67]
+
+            segments = ['New Customers', 'Returning', 'VIP Customers']
+            segment_values = [65, 28, 7]
+
+            fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+            axes[0, 0].bar(days, revenue, color='#27AE60')
+            axes[0, 0].set_title('Revenue by Day')
+
+            axes[0, 0].plot(days, transactions, marker='o', color='#E74C3C')
+
+            axes[0, 1].bar(products, product_revenue, color='#3498DB')
+            axes[0, 1].set_title('Product Performance')
+
+            axes[1, 0].barh(cart_funnel, cart_values, color=['#F39C12', '#E67E22', '#D35400', '#E74C3C'])
+            axes[1, 0].set_title('Cart Abandonment Funnel')
+
+            axes[1, 1].pie(segment_values, labels=segments, autopct='%1.0f%%')
+            axes[1, 1].set_title('Customer Segments')
+
+            plt.tight_layout()
+            png_path = 'reports/charts/ecommerce_performance.png'
+            html_path = 'reports/charts/ecommerce_performance.html'
+            fig.savefig(png_path, dpi=150)
+            plt.close(fig)
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write("<html><body><img src='ecommerce_performance.png' style='max-width:100%' /></body></html>")
 
     def generate_insights_and_recommendations(self) -> List[Dict[str, str]]:
         """Generate AI-powered insights and recommendations"""
@@ -1029,23 +1536,3 @@ class TPSAnalyticsReporter:
         self.create_user_behavior_analysis()
         self.create_ecommerce_performance_chart()
 
-        # Generate insights
-        insights = self.generate_insights_and_recommendations()
-
-        # Create HTML report
-        self.create_html_report(insights)
-
-        # Save raw data
-        self.save_data_json()
-
-        print("✅ Weekly report generated successfully!")
-        print(f"📊 KPI Dashboard: reports/charts/kpi_dashboard.html")
-        print(f"👥 User Behavior: reports/charts/user_behavior.html")
-        print(f"🛒 E-commerce: reports/charts/ecommerce_performance.html")
-        print(f"📄 Full Report: reports/weekly-report-{self.end_date.strftime('%Y-%m-%d')}.html")
-        print(f"💾 Raw Data: reports/data/analytics-data-{self.end_date.strftime('%Y-%m-%d')}.json")
-
-
-if __name__ == "__main__":
-    reporter = TPSAnalyticsReporter()
-    reporter.run()
