@@ -48,6 +48,17 @@ jobs:
         run: |
           mkdir -p out reports/sent-messages
           python3 scripts/generate_weekly_report.py --out out/report.pdf
+
+      - name: Upload report artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report-artifacts
+          path: |
+            out/*.pdf
+            reports/**
+            reports/delivery-response-*.json
+            reports/sent-messages/**
         env:
           WEEK_OFFSET: ${{ github.event.inputs.week_offset || '0' }}
           # Pass through optional secrets used by the script
