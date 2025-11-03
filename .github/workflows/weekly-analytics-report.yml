@@ -38,41 +38,34 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install kaleido plotly seaborn matplotlib || true
+          pip install kaleido plotly seaborn matplotlib weasyprint xvfbwrapper || true
+          sudo apt-get update
+          sudo apt-get install -y xvfb
 
       - name: 📊 Generate weekly report
         env:
           WEEK_OFFSET: ${{ github.event.inputs.week_offset || '0' }}
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-          AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}
-          GA4_SERVICE_ACCOUNT: ${{ secrets.GA4_SERVICE_ACCOUNT }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          MPLBACKEND: 'Agg'
         run: |
           mkdir -p out reports/sent-messages
-          echo "🔍 Current working directory: $(pwd)"
-          echo "📋 Files before generation:"
-          ls -la
           
-          echo "🔍 Generating weekly analytics report with charts..."
-          python3 scripts/generate_weekly_report.py || echo "Script failed but continuing..."
+          echo "�� Setting matplotlib backend for headless operation"
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 2
           
-          echo "📋 Files after generation:"
-          find . -maxdepth 2 -name "*.pdf" -type f -exec ls -la {} \; || echo "No PDFs found"
+          echo "🔍 Testing matplotlib setup:"
+          python3 -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; print('✅ matplotlib ready')"
           
-          echo "📋 All files in current directory:"
-          ls -la
+          echo "🔍 Generating weekly analytics report..."
+          python3 scripts/generate_weekly_report.py
           
-          echo "📋 Checking out/ and reports/ directories:"
-          ls -la out/ || echo "No out/ directory"
-          ls -la reports/ || echo "No reports/ directory"
+          echo "📋 Generated files:"
+          find . -name "tps-weekly-report-*.pdf" -exec ls -la {} \; || echo "No TPS weekly report PDF found"
+          find . -name "*.pdf" -not -path "./TPS-STAR-*" -not -path "./.venv/*" -exec ls -la {} \; || echo "No PDFs found at all"
           
-          find . -maxdepth 2 -name "*.pdf" -type f -not -path "./out/*" -not -name "*Guide*" -not -name "*Dashboard*" -exec cp {} out/ \; || echo "No PDFs to copy"
-          
-          echo "📦 Final out/ directory contents:"
+          echo "📋 Copying TPS report to out directory:"
+          find . -name "tps-weekly-report-*.pdf" -exec cp {} out/ \; || echo "No TPS PDF to copy"
           ls -la out/
 
       - name: 📊 Upload report metrics (always)
@@ -81,20 +74,7 @@ jobs:
         with:
           name: weekly-report-metrics-${{ github.run_number }}
           path: |
-            out/**
+            out/tps-weekly-report-*.pdf
             reports/**
-            *.pdf
+            tps-weekly-report-*.pdf
           retention-days: 30
-
-      - name: 📤 Upload generated artifacts  
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: weekly-analytics-report-${{ github.run_number }}
-          path: |
-            out/**
-            reports/*.html
-            reports/charts/*.png
-            reports/charts/*.html
-            reports/data/*.json
-          retention-days: 7
