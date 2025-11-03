@@ -1,0 +1,310 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPS-STAR Weekly Analytics Report - 2025-11-03</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2E86C1;
+            --success-color: #27AE60;
+            --warning-color: #F39C12;
+            --danger-color: #E74C3C;
+            --info-color: #3498DB;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), #1B4F72);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+
+        .header .subtitle {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .kpi-number {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .kpi-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kpi-change {
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .positive { color: var(--success-color); }
+        .negative { color: var(--danger-color); }
+        .neutral { color: var(--info-color); }
+
+        .chart-container {
+            margin: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .chart-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        .insights-section {
+            margin: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .insight-card {
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .insight-critical {
+            background: #fdeaea;
+            border-left-color: var(--danger-color);
+        }
+        .insight-warning {
+            background: #fef9e7;
+            border-left-color: var(--warning-color);
+        }
+        .insight-opportunity {
+            background: #eaf4fd;
+            border-left-color: var(--info-color);
+        }
+        .insight-success {
+            background: #eafaf1;
+            border-left-color: var(--success-color);
+        }
+
+        .insight-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .priority-badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .priority-critical { background: var(--danger-color); color: white; }
+        .priority-high { background: var(--warning-color); color: white; }
+        .priority-medium { background: var(--info-color); color: white; }
+        .priority-low { background: var(--success-color); color: white; }
+
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chart-embed {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> TPS-STAR Analytics Report</h1>
+            <div class="subtitle">
+                Weekly Business Intelligence Report<br>
+                Period: October 27 - November 03, 2025
+            </div>
+        </div>
+
+        <!-- KPI Overview -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Sessions</div>
+                <div class="kpi-number" style="color: var(--primary-color);">
+                    2,324
+                </div>
+                <div class="kpi-change positive">
+                    <i class="fas fa-arrow-up"></i> +12.3% vs last week
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Revenue</div>
+                <div class="kpi-number" style="color: var(--success-color);">
+                    €10,256
+                </div>
+                <div class="kpi-change positive">
+                    <i class="fas fa-arrow-up"></i> +8.7% vs last week
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Conversion Rate</div>
+                <div class="kpi-number" style="color: var(--info-color);">
+                    5.18%
+                </div>
+                <div class="kpi-change negative">
+                    <i class="fas fa-arrow-down"></i> -2.1% vs last week
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Avg Order Value</div>
+                <div class="kpi-number" style="color: var(--warning-color);">
+                    €302
+                </div>
+                <div class="kpi-change positive">
+                    <i class="fas fa-arrow-up"></i> +5.4% vs last week
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Crash-Free Sessions</div>
+                <div class="kpi-number" style="color: var(--success-color);">
+                    96.4%
+                </div>
+                <div class="kpi-change positive">
+                    <i class="fas fa-arrow-up"></i> +0.3% vs last week
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">User Retention (7d)</div>
+                <div class="kpi-number" style="color: var(--info-color);">
+                    19.2%
+                </div>
+                <div class="kpi-change positive">
+                    <i class="fas fa-arrow-up"></i> +4.2% vs last week
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-container">
+            <div class="chart-title">📊 KPI Dashboard Overview</div>
+            <iframe src="charts/kpi_dashboard.html" class="chart-embed"></iframe>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">👥 User Behavior Analysis</div>
+            <iframe src="charts/user_behavior.html" class="chart-embed"></iframe>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">🛒 E-commerce Performance</div>
+            <iframe src="charts/ecommerce_performance.html" class="chart-embed"></iframe>
+        </div>
+
+        <!-- Insights and Recommendations -->
+        <div class="insights-section">
+            <h2><i class="fas fa-lightbulb"></i> Key Insights & Recommendations</h2>
+
+            <div class="insight-card insight-warning">
+                <div class="insight-title">
+                    <i class="fas fa-exclamation-circle"></i>
+                    User Experience
+                    <span class="priority-badge priority-medium">Medium</span>
+                </div>
+                <div class="insight-content">
+                    <strong>Insight:</strong> High rage click count (17) indicates user frustration.<br>
+                    <strong>Recommendation:</strong> Review heatmaps to identify problematic elements and improve UI/UX design.
+                </div>
+            </div>
+
+            <div class="insight-card insight-critical">
+                <div class="insight-title">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Technical Health
+                    <span class="priority-badge priority-critical">Critical</span>
+                </div>
+                <div class="insight-content">
+                    <strong>Insight:</strong> Crash-free session rate is 96.4%, below 98% target.<br>
+                    <strong>Recommendation:</strong> Prioritize fixing top errors and implement better error handling.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><i class="fas fa-robot"></i> Generated automatically by TPS-STAR Analytics System</p>
+            <p>Report generated on November 03, 2025 at 09:28 PM UTC</p>
+            <p><i class="fas fa-github"></i> <a href="https://github.com/Stardust75001/TPS-STAR" style="color: #3498db;">View on GitHub</a></p>
+        </div>
+    </div>
+</body>
+</html>

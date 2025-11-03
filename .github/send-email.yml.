@@ -1,0 +1,19 @@
+name: Send test email
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  send_email:
+    runs-on: ubuntu-latest
+    env:
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      FROM_EMAIL: hello@thepetsociety.paris
+      TO_EMAIL: hello@thepetscociety.paris
+    steps:
+      - name: Send test email via SendGrid
+        run: |
+          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $SENDGRID_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"personalizations":[{"to":[{"email":"'"$TO_EMAIL"'"}]}],"from":{"email":"'"$FROM_EMAIL"'"},"subject":"CI Test","content":[{"type":"text/plain","value":"ok"}]}'
