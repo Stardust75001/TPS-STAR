@@ -1,0 +1,20 @@
+<!-- TPS-STAR Quick Debug -->
+<script>
+// Simple TPS debug function
+window.TPS = window.TPS || {};
+window.TPS.debug = {
+    enable: function() {
+        console.group('🔍 TPS-STAR Debug Info (Simple)');
+        console.log('✅ TPS object available');
+        console.log('🎯 Trackers status:');
+        console.log('  - Clarity:', typeof clarity === 'function' ? '✅ Active' : '❌ Inactive');
+        console.log('  - Hotjar:', typeof hj === 'function' ? '✅ Active' : '❌ Inactive');
+        console.log('  - GA4:', typeof gtag === 'function' ? '✅ Active' : '❌ Inactive');
+        console.log('  - Meta:', typeof fbq === 'function' ? '✅ Active' : '❌ Inactive');
+        console.groupEnd();
+    }
+};
+
+// Auto-enable on load
+console.log('🚀 TPS-STAR Simple Debug Ready - Use TPS.debug.enable()');
+</script>
