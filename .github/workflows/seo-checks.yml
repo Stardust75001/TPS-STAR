@@ -30,17 +30,56 @@ jobs:
           set -euo pipefail
           mkdir -p out
 
-          [[ -n "${AHREFS_API_KEY:-}" ]] || { echo "❌ AHREFS_API_KEY manquant"; exit 1; }
+          # Sanitize AHREFS_API_KEY: remove CR/LF and non-printable bytes
+          AHREFS_API_KEY_SANITIZED=$(printf '%s' "${AHREFS_API_KEY:-}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tr -cd '\11\12\15\40-\176')
+
+          # Masked preview for logs (first 4 / last 4) without showing full key
+          if [ -n "$AHREFS_API_KEY_SANITIZED" ]; then
+            MASKED_KEY=$(printf '%s' "$AHREFS_API_KEY_SANITIZED" | sed -E 's/^(.{4}).*(.{4})$/\1****\2/; t; s/.*/****/')
+          else
+            MASKED_KEY="(missing)"
+          fi
+          echo "Using AHREFS_API_KEY: $MASKED_KEY" >&2
+
+          # Fail early if AHREFS_API_KEY or TPS_DOMAIN missing
+          if [ -z "$AHREFS_API_KEY_SANITIZED" ]; then
+            echo "❌ AHREFS_API_KEY is missing or empty; set the repository secret AHREFS_API_KEY" >&2
+            echo "http_code=401" >> "$GITHUB_OUTPUT" || true
+            echo "error_msg=Missing AHREFS_API_KEY" >> "$GITHUB_OUTPUT" || true
+            exit 1
+          fi
+
           [[ -n "${TPS_DOMAIN:-}"     ]] || { echo "❌ TPS_DOMAIN manquant";     exit 1; }
+
+          # Override AHREFS_API_KEY with sanitized value for use below
+          AHREFS_API_KEY="$AHREFS_API_KEY_SANITIZED"
 
           # Normalise le domaine (retire https://, http:// et le path)
           TARGET="${TPS_DOMAIN#http://}"; TARGET="${TARGET#https://}"; TARGET="${TARGET%%/*}"
           echo "🎯 Target: $TARGET"
 
           # Appel API v3
-          HTTP_CODE=$(curl -sS -w "%{http_code}" -o out/ahrefs_metrics.json \
-            -H "Authorization: Bearer ${AHREFS_API_KEY}" \
-            "https://api.ahrefs.com/v3/site-explorer/metrics?target=${TARGET}&mode=domain")
+            # Sanitize TARGET: remove CR, LF, trim spaces, remove non-printable bytes
+            TARGET=$(printf '%s' "$TARGET" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tr -cd '\11\12\15\40-\176')
+
+            # Dump DEBUG files so we can inspect invisible/control characters if curl still fails
+            mkdir -p out
+            printf '%s' "$TARGET" | hexdump -C > out/target_hex.txt || true
+            echo "$TARGET" > out/target_plain.txt || true
+            ENC_TARGET=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))' <<<"$TARGET" ) || ENC_TARGET=""
+            echo "$ENC_TARGET" > out/target_urlencoded.txt || true
+
+            echo "Using TARGET='$TARGET'" >&2
+            echo "Encoded: $ENC_TARGET" >&2
+
+            # Use --get + --data-urlencode to ensure TARGET is safely encoded and avoid malformed-URL errors
+            HTTP_CODE=$(curl -sS -D out/ahrefs_headers.txt -o out/ahrefs_metrics.json -w "%{http_code}" \
+              -H "Authorization: Bearer ${AHREFS_API_KEY}" \
+              --get \
+              --data-urlencode "target=${TARGET}" \
+              --data "mode=domain" \
+              --data "date=$(date +%F)" \
+              "https://api.ahrefs.com/v3/site-explorer/metrics")
 
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
