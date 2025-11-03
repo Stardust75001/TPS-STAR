@@ -10,21 +10,61 @@ jobs:
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       FROM_EMAIL: ${{ secrets.SENDGRID_SENDER }}
       TO_EMAIL: ${{ secrets.EMAIL_RECIPIENT }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
-      - name: Send test email via SendGrid
+      - uses: actions/checkout@v4
+
+      - name: Create PDF report
+        run: |
+          python3 -m pip install --user reportlab
+          python3 - <<'PY'
+          import datetime
+          from reportlab.pdfgen import canvas
+          c = canvas.Canvas("weekly-report.pdf")
+          c.setFont("Helvetica", 14)
+          c.drawString(72, 760, "Weekly report")
+          c.setFont("Helvetica", 10)
+          c.drawString(72, 740, "Project: TPS-STAR")
+          c.drawString(72, 720, "Generated: " + datetime.datetime.utcnow().isoformat() + "Z")
+          c.drawString(72, 700, "Notes: simulation de rapport hebdo.")
+          c.showPage()
+          c.save()
+          PY
+
+      - name: Upload artifact (for manual download)
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report
+          path: weekly-report.pdf
+
+      - id: sendgrid_step
+        name: Send report by SendGrid (attachment)
         run: |
           set -euo pipefail
+          # encode attachment
+          ATTACH_B64=$(base64 -w 0 weekly-report.pdf)
 
-          payload='{"personalizations":[{"to":[{"email":"'"$TO_EMAIL"'"}]}],"from":{"email":"'"$FROM_EMAIL"'"},"subject":"CI Test","content":[{"type":"text/plain","value":"ok"}]}'
+          # build payload.json with variable expansion (safe heredoc)
+          cat > payload.json <<JSON
+          {
+            "personalizations":[{"to":[{"email":"'"$TO_EMAIL"'"}]}],
+            "from":{"email":"'"$FROM_EMAIL"'"},
+            "subject":"Weekly report - TPS-STAR",
+            "content":[{"type":"text/plain","value":"Bonjour,\n\nCi-joint le rapport hebdo.\n\nCordialement."}],
+            "attachments":[{"content":"'"$ATTACH_B64"'","filename":"weekly-report.pdf","type":"application/pdf","disposition":"attachment"}]
+          }
+          JSON
 
-          # envoie et capture corps + code HTTP (dernier ligne)
+          # send and capture body + http code
           resp=$(curl -s -w "\n%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
             -H "Authorization: Bearer $SENDGRID_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "$payload")
+            --data-binary @payload.json)
 
-          http=$(printf '%s' "$resp" | tail -n1)
-          body=$(printf '%s' "$resp" | sed '$d' || true)
+          http=$(printf '%s\n' "$resp" | tail -n1)
+          body=$(printf '%s\n' "$resp" | sed '$d' || true)
 
           echo "sendgrid_http=${http}" >> "$GITHUB_OUTPUT"
           echo "sendgrid_response<<EOF" >> "$GITHUB_OUTPUT"
@@ -32,5 +72,35 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
           echo "SendGrid HTTP status: $http"
-          [ "$http" -ge 200 ] && [ "$http" -lt 300 ] || { echo "SendGrid error response:"; echo "$body"; exit 1; }
-          echo "Email request accepted by SendGrid."
+          if [ "$http" -ge 200 ] && [ "$http" -lt 300 ]; then
+            echo "Email request accepted by SendGrid."
+          else
+            echo "SendGrid error response:" >&2
+            echo "$body" >&2
+            exit 1
+          fi
+
+      - name: Upload PDF to Slack (files.upload)
+        if: always()
+        run: |
+          set -euo pipefail
+          resp=$(curl -s -X POST \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -F file=@weekly-report.pdf \
+            -F channels="$SLACK_CHANNEL_ID" \
+            https://slack.com/api/files.upload)
+          echo "slack_upload_response=$resp" >> "$GITHUB_OUTPUT"
+          # check "ok" in response using python (available on runners)
+          ok=$(printf '%s' "$resp" | python3 -c "import sys, json; r=json.load(sys.stdin); print(r.get('ok'))")
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "Slack upload failed: $resp" >&2
+            exit 1
+          fi
+
+      - name: Notify Slack webhook (summary)
+        if: always()
+        run: |
+          status="${{ steps.sendgrid_step.outputs.sendgrid_http || 'unknown' }}"
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"Weekly report sent — SendGrid status: ${status}. Report uploaded to Slack and attached to run.\"}" \
+            "$SLACK_WEBHOOK_URL"
