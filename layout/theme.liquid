@@ -41,11 +41,6 @@
     <link rel="canonical" href="{{ canonical_url }}">
     <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
     <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
-    <link
-      rel="preload"
-      as="image"
-      href="{{ 'TB_TOUCAN_VERDURE2_1200x800_DESKTOP_-_MODIFIED_30887a17-85b3-4aad-8599-f5b54c0a3583.png' | asset_url }}"
-    >
 
     <link rel="alternate" hreflang="fr" href="{{ canonical_url | replace: '/de', '/fr' }}">
     <link rel="alternate" hreflang="de" href="{{ canonical_url | replace: '/fr', '/de' }}">
@@ -152,9 +147,9 @@
           {% render 'social-icons-no-flags' %}
         </div>
         <div class="language-selector-right">
-          <a href="/fr"><img src="{{ 'flag-fr.png' | asset_url }}" class="flag-icon" alt="FR"></a>
-          <a href="/"><img src="{{ 'flag-en.png' | asset_url }}" class="flag-icon" alt="EN"></a>
-          <a href="/de"><img src="{{ 'flag-de.png' | asset_url }}" class="flag-icon" alt="DE"></a>
+          <a href="/fr"><img src="{{ 'flag-fr.png' | asset_url }}" class="flag-icon" alt="FR" width="24" height="16"></a>
+          <a href="/"><img src="{{ 'flag-en.png' | asset_url }}" class="flag-icon" alt="EN" width="24" height="16"></a>
+          <a href="/de"><img src="{{ 'flag-de.png' | asset_url }}" class="flag-icon" alt="DE" width="24" height="16"></a>
         </div>
       </div>
       {% section 'discount-bar' %}

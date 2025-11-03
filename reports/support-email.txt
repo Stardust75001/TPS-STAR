@@ -1,0 +1,27 @@
+Subject: Delivery failure — "554 5.7.1 Relay access denied" for hello@thepetsociety.fr
+
+Hi OVH / Mail Admin,
+
+We attempted to deliver an automated report from hello@thepetsociety.paris and received a permanent bounce with the message below. Please can you check the receiving configuration for thepetsociety.fr and advise why the RCPT was rejected?
+
+--- bounce details ---
+Diagnostic: 554 5.7.1 <hello@thepetsociety.fr>: Relay access denied
+Sending MTA (our relay): sxb1plsmtp01-16.prod.sxb1.secureserver.net [92.204.80.1]
+Destination host IP that returned the error: 188.165.36.237 (PTR: mx1.mail.ovh.net)
+Message-ID of the original message: <176218606341.31266.4711586666728800813@mba-asc-m3.home>
+Local copy of the original message (EML): reports/sent-messages/message-176218606341.31266.4711586666728800813@mba-asc-m3.home.eml
+Delivery attempt time (UTC): Mon, 03 Nov 2025 08:57:47 -0700  (see EML for full headers)
+--- end bounce details ---
+
+What to check on your side:
+- Confirm that the mailbox hello@thepetsociety.fr exists and is active on the OVH service.
+- Confirm mx1.mail.ovh.net (188.165.36.237), mx2.mail.ovh.net and mx3.mail.ovh.net are configured to accept mail for thepetsociety.fr and are not misrouting to a server that refuses relays.
+- Check whether any ACLs or anti-spam rules are blocking relays from secureserver.net IP ranges (the sending MTA above).
+- If your setup expects authenticated submission only from certain relays, please confirm the allowed relay list or advise on required SPF/ACL updates.
+
+I have attached the original message (EML) above in case you need full headers and the raw MIME for troubleshooting. If you prefer, I can also provide additional logs or resend via an alternative relay (SendGrid) while this is investigated.
+
+Thanks,
+[Your Name]
+[Your Organization]
+[Optional: contact phone/email]

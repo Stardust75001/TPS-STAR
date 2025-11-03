@@ -1,0 +1,100 @@
+name: "� Weekly Analytics Report - TPS-STAR Business Intelligence"
+
+on:
+  schedule:
+    # Every Monday at 09:00 Europe/Paris (08:00 UTC)
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      week_offset:
+        description: "Weeks back to analyze (0 = last week, 1 = 2 weeks ago)"
+        default: "0"
+        required: false
+
+env:
+  # Common integration envs (populated from Secrets where available)
+  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
+  GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+  AMPLITUDE_API_KEY: ${{ secrets.AMPLITUDE_API_KEY }}
+  HOTJAR_API_KEY: ${{ secrets.HOTJAR_API_KEY }}
+  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  # Preferred delivery: SendGrid (fallbacks are handled inside the report script)
+  SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+  SENDGRID_SENDER: ${{ secrets.SENDGRID_SENDER }}
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # ensure common plot/export libs available
+          pip install kaleido || true
+
+      - name: 📊 Generate weekly report
+        run: |
+          mkdir -p out reports/sent-messages
+          python3 scripts/generate_weekly_report.py --out out/report.pdf
+
+      - name: Upload report artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report-artifacts
+          path: |
+            out/*.pdf
+            reports/**
+            reports/delivery-response-*.json
+            reports/sent-messages/**
+        env:
+          WEEK_OFFSET: ${{ github.event.inputs.week_offset || '0' }}
+          # Pass through optional secrets used by the script
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}
+          GA4_SERVICE_ACCOUNT: ${{ secrets.GA4_SERVICE_ACCOUNT }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_SENDER: ${{ secrets.SENDGRID_SENDER }}
+
+      - name: 📤 Upload generated artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-analytics-report-${{ github.run_number }}
+          path: |
+            out/report.pdf
+            reports/weekly-report-*.html
+            reports/charts/*
+            reports/data/*
+          retention-days: 30
+
+      - name: 💬 Post Slack notification (optional)
+        if: env.SLACK_WEBHOOK_URL
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data '{"text":"📊 Weekly TPS-STAR Analytics Report has been generated. Artifact: '"${{ github.run_number }}"'"}' \
+            ${{ env.SLACK_WEBHOOK_URL }}
+
+      - name: ✅ Log SendGrid fallback result
+        if: ${{ env.SENDGRID_API_KEY && env.SENDGRID_SENDER }}
+        run: |
+          echo "SendGrid env present; if the report script used SendGrid it should have printed the provider response in the job logs."
+          # Print last few lines of the most recent saved EML (best-effort) to help correlation
+          tail -n 200 $(ls -t reports/sent-messages/*.eml 2>/dev/null | head -n1 || echo /dev/null) || true
+

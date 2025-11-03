@@ -506,47 +506,6 @@ def main():
         # save small debug file
         _save_delivery_response({"error": repr(e)})
 
-if __name__ == "__main__":
-    try:
-        reporter = TPSAnalyticsReporter()
-        reporter.run()
-        try:
-            reporter.save_data_json()
-        except Exception:
-            pass
-        try:
-            insights = reporter.generate_insights_and_recommendations()
-            reporter.create_html_report(insights)
-        except Exception:
-            pass
-
-        # Fallback: also produce the simple PDF for CI artifact discovery
-        try:
-            date_str = datetime.utcnow().strftime('%Y%m%d')
-            out_dir = Path('out')
-            out_dir.mkdir(parents=True, exist_ok=True)
-            out_path = str(out_dir / f"tps-weekly-report-{date_str}.pdf")
-            print("Generating fallback PDF to", out_path)
-            build_pdf(out_path)
-            print("Fallback PDF written:", out_path)
-            # copy to repo root for easy artifact finding
-            root_copy = Path.cwd() / Path(f"tps-weekly-report-{date_str}.pdf")
-            try:
-                Path(out_path).replace(root_copy)
-                print("Copied PDF to repo root as", root_copy)
-            except Exception:
-                import shutil
-                shutil.copy(out_path, root_copy)
-                print("Also copied PDF to repo root (shutil)")
-        except Exception as e:
-            print("Fallback PDF generation failed:", repr(e))
-    except Exception as e:
-        print("Reporter run failed, falling back to legacy main():", repr(e))
-        try:
-            main()
-        except Exception as e2:
-            print("Legacy main() also failed:", repr(e2))
-
 # Disabled duplicate procedural entrypoint. Use the class-based
 # TPSAnalyticsReporter at the end of this file as the single entrypoint.
 
@@ -1537,4 +1496,53 @@ class TPSAnalyticsReporter:
         self.create_kpi_overview_chart()
         self.create_user_behavior_analysis()
         self.create_ecommerce_performance_chart()
+
+# Add the runtime entrypoint here (after the TPSAnalyticsReporter class)
+def _run_reporter_entrypoint():
+    """Instantiate and run the TPSAnalyticsReporter — placed after the class
+    definition to guarantee TPSAnalyticsReporter is defined before instantiation.
+    """
+    try:
+        reporter = TPSAnalyticsReporter()
+        reporter.run()
+        try:
+            reporter.save_data_json()
+        except Exception:
+            pass
+        try:
+            insights = reporter.generate_insights_and_recommendations()
+            reporter.create_html_report(insights)
+        except Exception:
+            pass
+
+        # Fallback: also produce the simple PDF for CI artifact discovery
+        try:
+            date_str = datetime.utcnow().strftime('%Y%m%d')
+            out_dir = Path('out')
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = str(out_dir / f"tps-weekly-report-{date_str}.pdf")
+            print("Generating fallback PDF to", out_path)
+            build_pdf(out_path)
+            print("Fallback PDF written:", out_path)
+            # copy to repo root for easy artifact finding
+            root_copy = Path.cwd() / Path(f"tps-weekly-report-{date_str}.pdf")
+            try:
+                Path(out_path).replace(root_copy)
+                print("Copied PDF to repo root as", root_copy)
+            except Exception:
+                import shutil
+                shutil.copy(out_path, root_copy)
+                print("Also copied PDF to repo root (shutil)")
+        except Exception as e:
+            print("Fallback PDF generation failed:", repr(e))
+    except Exception as e:
+        print("Reporter run failed, falling back to legacy main():", repr(e))
+        try:
+            main()
+        except Exception as e2:
+            print("Legacy main() also failed:", repr(e2))
+
+
+if __name__ == "__main__":
+    _run_reporter_entrypoint()
 

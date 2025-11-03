@@ -1,0 +1,29 @@
+{
+  "date": "2025-11-03T00:44:03.590618",
+  "period": "27/10/2025 - 03/11/2025",
+  "trackers": {
+    "clarity": {
+      "id": "tzvd9w6rjs",
+      "status": "active"
+    },
+    "hotjar": {
+      "id": "6564192",
+      "status": "active"
+    },
+    "ga4": {
+      "id": "G-E4NPI2ZZM3",
+      "status": "active"
+    },
+    "meta": {
+      "id": "1973238620087976",
+      "status": "active"
+    }
+  },
+  "roi_saved": 12800,
+  "next_actions": [
+    "Finaliser metafields Shopify",
+    "Enhanced Ecommerce GA4",
+    "Meta Pixel événements",
+    "Slack notifications"
+  ]
+}
