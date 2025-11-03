@@ -11,14 +11,13 @@ on:
         default: '0'
 
 env:
-  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
-  GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
-  AMPLITUDE_API_KEY: ${{ secrets.AMPLITUDE_API_KEY }}
-  HOTJAR_API_KEY: ${{ secrets.HOTJAR_API_KEY }}
-  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-  SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-  SENDGRID_SENDER: ${{ secrets.SENDGRID_SENDER }}
+  TPS_DOMAIN: thepetsociety.paris
+  GA4_PROPERTY_ID: G-E4NPI2ZZM3
+  SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+  SMTP_PORT: ${{ secrets.SMTP_PORT }}
+  SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+  SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+  EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
 
 jobs:
   generate-report:
@@ -49,22 +48,16 @@ jobs:
         run: |
           mkdir -p out reports/sent-messages
           
-          echo "�� Setting matplotlib backend for headless operation"
           export DISPLAY=:99
           Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
           sleep 2
-          
-          echo "🔍 Testing matplotlib setup:"
-          python3 -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; print('✅ matplotlib ready')"
           
           echo "🔍 Generating weekly analytics report..."
           python3 scripts/generate_weekly_report.py
           
           echo "📋 Generated files:"
           find . -name "tps-weekly-report-*.pdf" -exec ls -la {} \; || echo "No TPS weekly report PDF found"
-          find . -name "*.pdf" -not -path "./TPS-STAR-*" -not -path "./.venv/*" -exec ls -la {} \; || echo "No PDFs found at all"
           
-          echo "📋 Copying TPS report to out directory:"
           find . -name "tps-weekly-report-*.pdf" -exec cp {} out/ \; || echo "No TPS PDF to copy"
           ls -la out/
 
