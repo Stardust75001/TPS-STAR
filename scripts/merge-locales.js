@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-/**
- * Merge locales: STAR wins for existing values; RAW fills the gaps.
- * Usage:
- *   node scripts/merge-locales.js \
- *     --star ~/Shopify/TPS-STAR-WORKTREE/locales \
- *     --raw  ~/Shopify/TPS-RAW-V1-/locales \
- *     [--write]
- */
 const fs = require('fs');
 const path = require('path');
 
@@ -27,9 +19,7 @@ if (!STAR_DIR || !RAW_DIR) {
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 
 function deepUnionMerge(star, raw, stats) {
-  // STAR has priority; RAW only fills missing keys.
   if (Array.isArray(star) || Array.isArray(raw)) {
-    // For arrays: keep STAR if it exists, else RAW
     if (Array.isArray(star)) return star;
     if (Array.isArray(raw))  { stats.added++; return raw; }
     return star;
@@ -38,74 +28,54 @@ function deepUnionMerge(star, raw, stats) {
     const out = { ...star };
     for (const key of Object.keys(raw)) {
       if (!(key in star)) {
-        out[key] = raw[key];
-        stats.added++;
+        out[key] = raw[key]; stats.added++;
       } else {
         if (isObj(star[key]) || Array.isArray(star[key])) {
           out[key] = deepUnionMerge(star[key], raw[key], stats);
         } else {
-          // key exists in STAR → keep STAR, count as kept
           stats.kept++;
         }
       }
     }
     return out;
   }
-  // If STAR exists, keep it; otherwise take RAW
   if (star !== undefined) { stats.kept++; return star; }
-  if (raw !== undefined)  { stats.added++; return raw; }
+  if (raw  !== undefined) { stats.added++; return raw; }
   return star;
 }
 
 function sortKeysDeep(obj) {
   if (Array.isArray(obj)) return obj.map(sortKeysDeep);
   if (!isObj(obj)) return obj;
-  return Object.keys(obj).sort().reduce((acc, k) => {
-    acc[k] = sortKeysDeep(obj[k]);
-    return acc;
-  }, {});
+  return Object.keys(obj).sort().reduce((acc,k)=>{ acc[k]=sortKeysDeep(obj[k]); return acc; },{});
 }
 
 function loadJSON(fp) {
-  try {
-    return JSON.parse(fs.readFileSync(fp, 'utf8'));
-  } catch (e) {
-    throw new Error(`Invalid JSON: ${fp}\n${e.message}`);
-  }
+  try { return JSON.parse(fs.readFileSync(fp,'utf8')); }
+  catch(e){ throw new Error(`Invalid JSON: ${fp}\n${e.message}`); }
 }
 
-function main() {
-  const starFiles = fs.readdirSync(STAR_DIR).filter(f => f.endsWith('.json'));
-  const rawFiles  = fs.readdirSync(RAW_DIR).filter(f => f.endsWith('.json'));
+(function main(){
+  const starFiles = fs.readdirSync(STAR_DIR).filter(f=>f.endsWith('.json'));
+  const rawFiles  = fs.readdirSync(RAW_DIR).filter(f=>f.endsWith('.json'));
   const set = new Set([...starFiles, ...rawFiles]);
 
-  let totalAdded = 0, totalKept = 0, processed = 0;
+  let totalAdded=0, totalKept=0, processed=0;
 
   for (const file of set) {
-    const starPath = path.join(STAR_DIR, file);
-    const rawPath  = path.join(RAW_DIR, file);
-
+    const starPath = path.join(STAR_DIR,file);
+    const rawPath  = path.join(RAW_DIR,file);
     if (!fs.existsSync(starPath) && !fs.existsSync(rawPath)) continue;
 
     const starJSON = fs.existsSync(starPath) ? loadJSON(starPath) : {};
     const rawJSON  = fs.existsSync(rawPath)  ? loadJSON(rawPath)  : {};
 
-    const stats = { added: 0, kept: 0 };
+    const stats={added:0,kept:0};
     const merged = sortKeysDeep(deepUnionMerge(starJSON, rawJSON, stats));
 
-    totalAdded += stats.added;
-    totalKept  += stats.kept;
-    processed++;
-
-    const action = WRITE ? '📝 write' : '👀 dry-run';
-    console.log(`• ${action} ${file}: +${stats.added} keys added, ${stats.kept} kept`);
-
-    if (WRITE) {
-      fs.writeFileSync(starPath, JSON.stringify(merged, null, 2) + '\n', 'utf8');
-    }
+    totalAdded += stats.added; totalKept += stats.kept; processed++;
+    console.log(`• ${WRITE?'📝 write':'👀 dry-run'} ${file}: +${stats.added} added, ${stats.kept} kept`);
+    if (WRITE) fs.writeFileSync(starPath, JSON.stringify(merged,null,2)+'\n','utf8');
   }
-
-  console.log(`\n✅ Done (${processed} files). Added: ${totalAdded}, Kept: ${totalKept}. ${WRITE ? 'Changes written.' : 'No files modified (dry-run).'}`);
-}
-
-main();
+  console.log(`\n✅ Done (${processed} files). Added: ${totalAdded}, Kept: ${totalKept}. ${WRITE?'Written.':'No changes.'}`);
+})();
