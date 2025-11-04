@@ -172,6 +172,28 @@
   }
 </script>
 
+{%- assign first_image = true -%}
+{%- for media in product.media -%}
+  {%- if first_image -%}
+    {%- assign _loading = 'eager' -%}
+    {%- assign _priority = 'high' -%}
+    {%- assign first_image = false -%}
+  {%- else -%}
+    {%- assign _loading = 'lazy' -%}
+    {%- assign _priority = 'auto' -%}
+  {%- endif -%}
+
+  <img
+    src="{{ media | image_url: width: 1600 }}"
+    alt="{{ media.alt | escape }}"
+    width="{{ media.width }}"
+    height="{{ media.height }}"
+    loading="{{ _loading }}"
+    fetchpriority="{{ _priority }}"
+    decoding="async"
+  >
+{%- endfor -%}
+
 {% schema %}
 {
   "name": "Produit avancé",

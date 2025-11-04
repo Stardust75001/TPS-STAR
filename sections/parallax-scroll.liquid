@@ -222,6 +222,28 @@
   </div>
 </section>
 
+{%- assign above_the_fold = true -%} {# false si pas hero #}
+
+<img
+  src="{{ section.settings.image | image_url: width: 2400 }}"
+  alt="{{ section.settings.alt | escape }}"
+  width="{{ section.settings.image.width }}"
+  height="{{ section.settings.image.height }}"
+  loading="{% if above_the_fold %}eager{% else %}lazy{% endif %}"
+  fetchpriority="{% if above_the_fold %}high{% else %}auto{% endif %}"
+  decoding="async"
+/>
+
+<img
+  src="{{ section.settings.image_mobile | image_url: width: 1200 }}"
+  alt="{{ section.settings.alt_mobile | escape }}"
+  width="{{ section.settings.image_mobile.width }}"
+  height="{{ section.settings.image_mobile.height }}"
+  loading="{% if above_the_fold %}eager{% else %}lazy{% endif %}"
+  fetchpriority="{% if above_the_fold %}high{% else %}auto{% endif %}"
+  decoding="async"
+/>
+
 {% schema %}
 {
   "name": "Parallaxe Défilante",

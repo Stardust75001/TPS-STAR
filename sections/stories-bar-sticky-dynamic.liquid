@@ -64,7 +64,7 @@
       {% assign image = block.settings.image | img_url: 'master' %}
       {% assign link = block.settings.link %}
       <a href="{{ link | prepend: base_url }}" class="animated-stories-link">
-        <img src="{{ image }}" alt="{{ title }}">
+        <img src="{{ image }}" alt="{{ title }}" loading="lazy" decoding="async">
         <div class="tooltip-bubble" role="tooltip">
           {{ title }}
         </div>

@@ -255,3 +255,23 @@
     </div>
   {% endif %}
 </section>
+
+{%- for block in section.blocks -%}
+  {%- if forloop.first -%}
+    {%- assign _loading = 'eager' -%}
+    {%- assign _priority = 'high' -%}
+  {%- else -%}
+    {%- assign _loading = 'lazy' -%}
+    {%- assign _priority = 'auto' -%}
+  {%- endif -%}
+
+  <img
+    src="{{ block.settings.image | image_url: width: 2400 }}"
+    alt="{{ block.settings.alt | escape }}"
+    width="{{ block.settings.image.width }}"
+    height="{{ block.settings.image.height }}"
+    loading="{{ _loading }}"
+    fetchpriority="{{ _priority }}"
+    decoding="async"
+  >
+{%- endfor -%}
