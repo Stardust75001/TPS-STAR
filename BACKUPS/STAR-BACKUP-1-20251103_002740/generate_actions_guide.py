@@ -1,0 +1,509 @@
+#!/usr/bin/env python3
+"""
+TPS-STAR Quick Actions Guide - PDF Complément
+Guide rapide avec actions concrètes pour chaque dashboard
+"""
+
+import os
+import sys
+from datetime import datetime
+
+def create_quick_actions_guide():
+    """Crée le guide d'actions rapides pour chaque dashboard"""
+
+    html_content = """
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPS-STAR - Actions Rapides par Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 300;
+        }
+
+        .dashboard {
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .dashboard.clarity { border-color: #6f42c1; }
+        .dashboard.hotjar { border-color: #fd7e14; }
+        .dashboard.ga4 { border-color: #28a745; }
+        .dashboard.meta { border-color: #007bff; }
+
+        .dashboard h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.8em;
+            border-bottom: 3px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+
+        .url-box {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .steps {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .steps h3 {
+            color: #495057;
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .step-number {
+            background: #17a2b8;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content strong {
+            color: #2c3e50;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa1;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #155724;
+        }
+
+        .code-snippet {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .timing {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .troubleshoot {
+            background: #ffe6e6;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        @media print {
+            body { margin: 0; padding: 15px; }
+            .dashboard { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ TPS-STAR</h1>
+        <p>Guide d'Actions Rapides par Dashboard</p>
+        <p>Vérification étape par étape</p>
+    </div>
+
+    <div class="dashboard clarity">
+        <h2>🪟 Microsoft Clarity - Actions Rapides</h2>
+
+        <div class="url-box">
+            👆 Cliquez ici : https://clarity.microsoft.com
+        </div>
+
+        <div class="steps">
+            <h3>🎯 Actions à effectuer dans l'ordre :</h3>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Se connecter</strong><br>
+                    Utilisez votre compte Microsoft associé au projet ID: <code>tzvd9w6rjs</code>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Aller dans "Projects"</strong><br>
+                    Sélectionnez votre projet TPS-STAR ou le site configuré
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Vérifier "Dashboard"</strong><br>
+                    Vous devriez voir des sessions actives ou récentes (dernières 24h)
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Tester "Recordings"</strong><br>
+                    Cliquez sur une session récente pour voir l'enregistrement vidéo de votre navigation
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Examiner "Heatmaps"</strong><br>
+                    Allez dans Heatmaps → sélectionnez une page → vérifiez les zones de clic/scroll
+                </div>
+            </div>
+        </div>
+
+        <div class="timing">
+            <strong>⏱️ Timing :</strong> Les données apparaissent généralement en 2-5 minutes après navigation
+        </div>
+
+        <div class="troubleshoot">
+            <strong>🔧 Si rien n'apparaît :</strong>
+            <div class="code-snippet">
+// Testez dans la console de votre site :
+typeof clarity  // Doit retourner "function"
+clarity('identify', 'test-user-clarity')
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard hotjar">
+        <h2>🔥 Hotjar - Actions Rapides</h2>
+
+        <div class="url-box">
+            👆 Cliquez ici : https://insights.hotjar.com
+        </div>
+
+        <div class="steps">
+            <h3>🎯 Actions à effectuer dans l'ordre :</h3>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Se connecter</strong><br>
+                    Accédez à votre compte Hotjar avec le site ID: <code>6564192</code>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Vérifier le statut</strong><br>
+                    En haut de la page, cherchez "Tracking Status: Active" (voyant vert)
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Aller dans "Recordings"</strong><br>
+                    Vous devriez voir vos sessions de navigation récentes
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Tester "Heatmaps"</strong><br>
+                    Créez ou vérifiez une heatmap existante pour voir les données de clics
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Vérifier "Verify Installation"</strong><br>
+                    Settings → Installation → "Verify Installation" doit montrer ✅
+                </div>
+            </div>
+        </div>
+
+        <div class="timing">
+            <strong>⏱️ Timing :</strong> Les données apparaissent en 3-10 minutes. Le statut "Active" peut prendre jusqu'à 20 minutes
+        </div>
+
+        <div class="troubleshoot">
+            <strong>🔧 Si "Tracking Inactive" :</strong>
+            <div class="code-snippet">
+// Testez dans la console de votre site :
+typeof hj  // Doit retourner "function"
+hj('identify', 'test-user-hotjar', {test: true})
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard ga4">
+        <h2>📈 Google Analytics 4 - Actions Rapides</h2>
+
+        <div class="url-box">
+            👆 Cliquez ici : https://analytics.google.com
+        </div>
+
+        <div class="steps">
+            <h3>🎯 Actions à effectuer dans l'ordre :</h3>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Se connecter</strong><br>
+                    Connectez-vous et sélectionnez la propriété avec ID: <code>G-E4NPI2ZZM3</code>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Aller dans "Realtime"</strong><br>
+                    Menu de gauche → Reports → Realtime (vous devriez apparaître immédiatement)
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Vérifier "Users in last 30 minutes"</strong><br>
+                    Le chiffre doit être ≥ 1 (vous) quand vous naviguez
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Examiner "Event count by Event name"</strong><br>
+                    Vous devriez voir: page_view, session_start, user_engagement
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Vérifier la géolocalisation</strong><br>
+                    Dans "Users by country" → votre pays doit apparaître
+                </div>
+            </div>
+        </div>
+
+        <div class="timing">
+            <strong>⏱️ Timing :</strong> Les données en temps réel apparaissent IMMÉDIATEMENT (0-2 minutes maximum)
+        </div>
+
+        <div class="troubleshoot">
+            <strong>🔧 Si pas de données temps réel :</strong>
+            <div class="code-snippet">
+// Testez dans la console de votre site :
+typeof gtag  // Doit retourner "function"
+gtag('event', 'test_tps', {custom_parameter: 'test'})
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard meta">
+        <h2>📱 Meta Business - Actions Rapides</h2>
+
+        <div class="url-box">
+            👆 Cliquez ici : https://business.facebook.com/events_manager
+        </div>
+
+        <div class="steps">
+            <h3>🎯 Actions à effectuer dans l'ordre :</h3>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Se connecter</strong><br>
+                    Accédez à votre compte Business avec Pixel ID: <code>1973238620087976</code>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Sélectionner votre Pixel</strong><br>
+                    Dans Events Manager → Data Sources → sélectionnez votre pixel TPS-STAR
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Vérifier "Test Events"</strong><br>
+                    Onglet "Test Events" → vous devriez voir des événements PageView récents
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Examiner "Events"</strong><br>
+                    Onglet "Events" → vérifiez le nombre d'événements des dernières heures
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <strong>Contrôler "Overview"</strong><br>
+                    Vérifiez que le pixel status est "Active" et connecté
+                </div>
+            </div>
+        </div>
+
+        <div class="timing">
+            <strong>⏱️ Timing :</strong> Les événements test apparaissent en 1-5 minutes, les événements standards en 5-10 minutes
+        </div>
+
+        <div class="troubleshoot">
+            <strong>🔧 Si pas d'événements :</strong>
+            <div class="code-snippet">
+// Testez dans la console de votre site :
+typeof fbq  // Doit retourner "function"
+fbq('track', 'Lead', {test_source: 'tps_verification'})
+            </div>
+        </div>
+    </div>
+
+    <div class="success">
+        <h3>🎉 Validation Finale - Tous les Dashboards Actifs !</h3>
+        <p><strong>Une fois que vous voyez des données dans LES 4 dashboards :</strong></p>
+        <ul>
+            <li>✅ Microsoft Clarity : Sessions et enregistrements visibles</li>
+            <li>✅ Hotjar : Status "Active" + recordings disponibles</li>
+            <li>✅ Google Analytics 4 : Utilisateurs temps réel ≥ 1</li>
+            <li>✅ Meta Business : Événements test + PageView actifs</li>
+        </ul>
+        <p><strong>🚀 Votre système TPS-STAR est 100% opérationnel et toutes les plateformes reçoivent correctement les données !</strong></p>
+    </div>
+
+    <div class="warning">
+        <h3>📋 Script de Test Rapide Global</h3>
+        <p>Copiez-collez ce code dans la console de votre site pour un test immédiat :</p>
+        <div class="code-snippet">
+// Test rapide de tous les trackers TPS-STAR
+console.log('🧪 TPS-STAR Quick Test');
+console.log('Meta Pixel:', typeof fbq === 'function' ? '✅' : '❌');
+console.log('GA4:', typeof gtag === 'function' ? '✅' : '❌');
+console.log('Clarity:', typeof clarity === 'function' ? '✅' : '❌');
+console.log('Hotjar:', typeof hj === 'function' ? '✅' : '❌');
+
+// Envoyer des événements de test
+if (typeof fbq === 'function') fbq('track', 'Lead', {test: true});
+if (typeof gtag === 'function') gtag('event', 'tps_test', {test: true});
+if (typeof clarity === 'function') clarity('set', 'test', 'tps_star');
+if (typeof hj === 'function') hj('identify', 'test-' + Date.now(), {test: true});
+
+console.log('🚀 Tests envoyés ! Vérifiez les dashboards en 2-10 minutes.');
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 5px; color: #6c757d;">
+        <p><strong>TPS-STAR Actions Rapides</strong></p>
+        <p>Guide généré le """ + datetime.now().strftime("%d/%m/%Y à %H:%M") + """</p>
+        <p>🎯 Suivez ces étapes dans l'ordre pour une vérification systématique</p>
+    </div>
+</body>
+</html>
+    """
+
+    # Créer le fichier HTML
+    html_file = "TPS-STAR-Actions-Rapides-Guide.html"
+    with open(html_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
+    print(f"✅ Guide Actions Rapides HTML créé : {html_file}")
+    return html_file
+
+if __name__ == "__main__":
+    print("⚡ TPS-STAR - Génération du Guide d'Actions Rapides")
+    print("=" * 55)
+
+    guide_file = create_quick_actions_guide()
+
+    print()
+    print("🎯 GUIDE ACTIONS RAPIDES CRÉÉ !")
+    print(f"📁 Fichier : {guide_file}")
+    print()
+    print("⚡ Ce guide contient :")
+    print("   • Actions étape par étape pour chaque dashboard")
+    print("   • URLs directes et instructions de connexion")
+    print("   • Scripts de test dans la console")
+    print("   • Timing précis d'apparition des données")
+    print("   • Solutions de dépannage ciblées")
+    print()
+    print("🎉 Parfait complément au guide de vérification principal !")
