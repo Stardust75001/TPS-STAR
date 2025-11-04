@@ -374,7 +374,7 @@
 {%- comment -%} Ensure Sentry init includes autoSessionTracking + release {%- endcomment -%}
 <script>
   (function(){
-    var sentryDsn = {{ settings.sentry_dsn | default: settings.sentry_dsn_dev | json }};
+    var sentryDsn = {{ sentry_dsn | json }};
     if (!sentryDsn) return;
     var sentryRelease = "tps-star@{{ 'now' | date: '%Y-%m-%d' }}";
 
@@ -434,7 +434,7 @@
 {%- endif -%}
 
 {%- comment -%} Expose Sentry DSN for audit crawler (rendered as HTML comment) {%- endcomment -%}
-{%- assign _sentry_dsn = settings.sentry_dsn | default: shop.metafields.custom.sentry_dsn -%}
+{%- assign _sentry_dsn = sentry_dsn -%}
 {%- if _sentry_dsn -%}
   <!-- SENTRY_DSN: {{ _sentry_dsn }} -->
 {%- endif -%}
