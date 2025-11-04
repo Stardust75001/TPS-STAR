@@ -13,3 +13,10 @@ assets/variables.css
 
 .venv/
 artifacts/
+repo.git
+config/settings_data.json.bak
+BACKUPS/
+TPS-STAR
+TPS-STAR-WORKTREE
+*.bak
+assets/sentry-bundle.tracing.min.js
