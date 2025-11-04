@@ -22,7 +22,7 @@
   # Core analytics platforms - Shopify standard lowercase keys
   assign ga4_token              = integ.ga4_token              | default: integ.GA4_Token              | strip
   assign meta_pixel_id          = integ.meta_pixel_id          | default: integ.Meta_Pixel_ID           | strip
-  assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | default: shop.metafields.custom.sentry_dsn | strip
+  assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | strip
   assign cloudflare_beacon_token= integ.cloudflare_beacon_token| default: integ.Cloudflare_Token        | strip
   assign slack_webhook_url      = integ.slack_webhook_url      | default: integ.Slack_Webhook_URL       | strip
   # ahrefs_api_key is intentionally not exposed in the theme; keep API keys in CI or server-side secrets
@@ -244,7 +244,7 @@
 
     // === SNAPCHAT PIXEL ===
     if (cfg.snapchat_pixel) {
-      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)}(window,document,'https://sc-static.net/scevent.min.js');
+      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)})(window,document,'https://sc-static.net/scevent.min.js');
       snaptr('init', cfg.snapchat_pixel, {'user_email': '{{ customer.email | sha256 | default: "" }}'});
       snaptr('track', 'PAGE_VIEW');
     }
@@ -431,10 +431,4 @@
     <iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
             height="0" width="0" style="display:none;visibility:hidden"></iframe>
   </noscript>
-{%- endif -%}
-
-{%- comment -%} Expose Sentry DSN for audit crawler (rendered as HTML comment) {%- endcomment -%}
-{%- assign _sentry_dsn = settings.sentry_dsn | default: shop.metafields.custom.sentry_dsn -%}
-{%- if _sentry_dsn -%}
-  <!-- SENTRY_DSN: {{ _sentry_dsn }} -->
 {%- endif -%}

@@ -8,3 +8,8 @@ dist/
 .shopify/
 assets/sentry-init.js
 assets/variables.css
+
+.venv/
+
+.venv/
+artifacts/
