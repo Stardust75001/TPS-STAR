@@ -11,7 +11,7 @@
   "current": {
     "code_head": "",
     "sentry_enabled": true,
-    "sentry_dsn": "https://7a7975bb87b245b9a5d4b0e6b492f6d0@o4501342949672960.ingest.sentry.io/4501342950033408",
+    "sentry_dsn": """",
     "sentry_traces_sample_rate": 0.1,
     "sentry_debug": false,
     "sentry_security_token": "NOT_SET",
