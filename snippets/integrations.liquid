@@ -244,7 +244,7 @@
 
     // === SNAPCHAT PIXEL ===
     if (cfg.snapchat_pixel) {
-      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)})(window,document,'https://sc-static.net/scevent.min.js');
+      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)}(window,document,'https://sc-static.net/scevent.min.js');
       snaptr('init', cfg.snapchat_pixel, {'user_email': '{{ customer.email | sha256 | default: "" }}'});
       snaptr('track', 'PAGE_VIEW');
     }
@@ -367,6 +367,39 @@
       document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
     } else {
       window.TPS.pageReady();
+    }
+  })();
+</script>
+
+{%- comment -%} Ensure Sentry init includes autoSessionTracking + release {%- endcomment -%}
+<script>
+  (function(){
+    var sentryDsn = {{ settings.sentry_dsn | default: settings.sentry_dsn_dev | json }};
+    if (!sentryDsn) return;
+    var sentryRelease = "tps-star@{{ 'now' | date: '%Y-%m-%d' }}";
+
+    // load Sentry SDK (if not already loaded)
+    if (!window.Sentry) {
+      var s = document.createElement('script');
+      s.src = 'https://browser.sentry-cdn.com/8.36.0/bundle.tracing.replay.min.js';
+      s.crossOrigin = 'anonymous';
+      s.async = true;
+      s.onload = initSentry;
+      document.head.appendChild(s);
+    } else {
+      initSentry();
+    }
+
+    function initSentry(){
+      try {
+        Sentry.init({
+          dsn: sentryDsn,
+          release: sentryRelease,
+          autoSessionTracking: true,
+          integrations: [new Sentry.Integrations.BrowserTracing()],
+          tracesSampleRate: 0.05
+        });
+      } catch(e){}
     }
   })();
 </script>
