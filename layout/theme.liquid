@@ -13,8 +13,11 @@
   {% endif %}
 >
   <head>
+    {%- comment -%} Load integrations snippet (contains config JSON / guards) {%- endcomment -%}
     {%- render 'integrations' -%}
-    {%- render 'tps-debug-simple' -%}
+
+    {%- comment -%} Load Sentry bundle (will read metafield via sentryConfig) {%- endcomment -%}
+    <script src="{{ 'sentry-bundle.tracing.min.js' | asset_url }}" defer></script>
 
     {%- comment -%} DEBUG TEMPORAIRE - Vérification des metafields {%- endcomment -%}
     <script>console.log('TPS mf:', {{ shop.metafields.custom_integrations | json }} );</script>
@@ -129,12 +132,7 @@
       defer
       crossorigin="anonymous"
     ></script>
-<<<<<<< Updated upstream
     {%- comment -%} TPS-STAR Universal Tracking System - All platforms managed via snippets/integrations.liquid {%- endcomment -%}
-=======
-    {%- render 'tracking-analytics' -%}
-    {%- render 'integrations' -%}
->>>>>>> Stashed changes
   </head>
   <body class="{{ request.page_type | prepend: 'page-type-' }}">
     <a class="visually-hidden-focusable" href="#main">
@@ -205,3 +203,4 @@
     {%- comment -%} TPS-STAR Universal Tracking System - Loaded in <head> via snippets/integrations.liquid {%- endcomment -%}
   </body>
 </html>
+

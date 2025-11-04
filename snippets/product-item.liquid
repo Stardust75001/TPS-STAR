@@ -19,9 +19,6 @@
     <a
       class="product-link position-relative d-block link-dark"
       href="{{ product.url | within: collection }}"
-      data-rec-product-id="{{ product.id }}"
-      data-rec-position="{{ forloop.index }}"
-      data-rec-source="{% if template.name == 'product' %}product_page{% elsif template.name == 'index' %}homepage{% else %}{{ template.name }}{% endif %}"
     >
       {% unless product.metafields.shopiweb.custom_badge == blank %}
         <span

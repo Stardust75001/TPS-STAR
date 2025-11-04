@@ -40,15 +40,3 @@
     </button>
   {% endform %}
 </div>
-<button id="btn-add-hero">Add to Cart</button>
-<script>
-document.getElementById('btn-add-hero')?.addEventListener('click', function(){
-  if (!window.TPS || !TPS.trackEvent) return;
-  TPS.trackEvent('Add to Cart', {
-    product_id: '{{ product.id }}',
-    product_name: {{ product.title | json }},
-    price: {{ product.price | money_without_currency | replace: ',', '.' }},
-    source: 'hero_button'
-  });
-});
-</script>
