@@ -81,8 +81,9 @@
 <script>
   (function () {
     var cfgEl = document.getElementById('tps-integrations');
+    if (!cfgEl) return;
     var cfg = {};
-    try { cfg = JSON.parse(cfgEl.textContent||'{}'); } catch(e){ cfg = {}; }
+    try { cfg = JSON.parse(cfgEl.textContent || '{}'); } catch(e){ cfg = {}; }
 
     window.TPS = window.TPS || {};
     window.TPS.integrations = Object.assign({}, window.TPS.integrations || {}, cfg);
@@ -103,9 +104,9 @@
         if (id && document.getElementById(id)) return resolve();
         var s = document.createElement('script');
         s.src = src; s.async = true; if (id) s.id = id;
-        if (attrs) Object.keys(attrs).forEach(k => s.setAttribute(k, attrs[k]));
+        if (attrs) for (var k in attrs) { s.setAttribute(k, attrs[k]); }
         s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
+        (document.head || document.documentElement).appendChild(s);
       });
     }
 
@@ -181,12 +182,13 @@
     // === META PIXEL ===
     if (cfg.meta_pixel_id && cfg.meta_pixel_id !== 'null' && cfg.meta_pixel_id !== '') {
       (function(f,b,e,v,n,t,s){
-        if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-        n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
-        s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);
-      })(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+        if(f.fbq) return;
+        n = f.fbq = function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments); };
+        if(!f._fbq) f._fbq = n;
+        n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = [];
+        t = b.createElement(e); t.async = !0; t.src = v;
+        s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+      })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
       try {
         console.log('[TPS] meta id:', cfg.meta_pixel_id, typeof cfg.meta_pixel_id);
@@ -206,7 +208,7 @@
       loadScript('https://static.cloudflareinsights.com/beacon.min.js', 'cf-beacon', {
         'defer': '',
         'data-cf-beacon': JSON.stringify({ token: cfg.cloudflare_beacon_token })
-      });
+      }).catch(function(){ console.warn('[TPS-STAR] Cloudflare Beacon failed'); });
     }
 
     // === HOTJAR (Heatmaps & User Recordings) - Updated with contentsquare.net URL ===
@@ -362,7 +364,6 @@
       console.log('[TPS-STAR] Event tracked:', eventName, context);
     };
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', window.TPS.pageReady);
     } else {
@@ -374,7 +375,7 @@
 {%- comment -%} Ensure Sentry init includes autoSessionTracking + release {%- endcomment -%}
 <script>
   (function(){
-    var sentryDsn = {{ settings.sentry_dsn | default: settings.sentry_dsn_dev | json }};
+    var sentryDsn = {{ sentry_dsn | json }};
     if (!sentryDsn) return;
     var sentryRelease = "tps-star@{{ 'now' | date: '%Y-%m-%d' }}";
 
@@ -431,4 +432,10 @@
     <iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
             height="0" width="0" style="display:none;visibility:hidden"></iframe>
   </noscript>
+{%- endif -%}
+
+{%- comment -%} Expose Sentry DSN for audit crawler (rendered as HTML comment) {%- endcomment -%}
+{%- assign _sentry_dsn = sentry_dsn -%}
+{%- if _sentry_dsn -%}
+  <!-- SENTRY_DSN: {{ _sentry_dsn }} -->
 {%- endif -%}
