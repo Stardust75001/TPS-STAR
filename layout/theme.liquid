@@ -129,14 +129,8 @@
       defer
       crossorigin="anonymous"
     ></script>
-<<<<<<< Updated upstream
     {%- comment -%} TPS-STAR Universal Tracking System - All platforms managed via snippets/integrations.liquid {%- endcomment -%}
-=======
-    {%- render 'tracking-analytics' -%}
-    {%- render 'integrations' -%}
->>>>>>> Stashed changes
   </head>
-
   <body class="{{ request.page_type | prepend: 'page-type-' }}">
     <a class="visually-hidden-focusable" href="#main">
       {{- 'general.accessibility.skip_content' | t -}}
