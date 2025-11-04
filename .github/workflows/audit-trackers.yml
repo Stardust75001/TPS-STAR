@@ -13,7 +13,7 @@ on:
 env:
   DOMAIN: ${{ secrets.TPS_DOMAIN }}                       # ex: https://thepetsociety.paris
   EXPECT_GA4_ID: ${{ secrets.EXPECT_GA4_ID }}             # ex: G-XXXXXXX (facultatif, sinon pattern)
-  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }} # ex: 1234567890
+  EXPECT_META_PIXEL_ID: ${{ secrets.EXPECT_META_PIXEL_ID }}# ex: 1234567890
   EXPECT_AHREFS_VERIF: ${{ secrets.EXPECT_AHREFS_VERIF }} # meta ahrefs-site-verification
   EXPECT_CF_TOKEN: ${{ secrets.EXPECT_CF_TOKEN }}         # token Cloudflare Beacon
   EXPECT_SENTRY_DSN: ${{ secrets.EXPECT_SENTRY_DSN }}     # DSN complet (facultatif, sinon pattern)
@@ -95,16 +95,21 @@ jobs:
           fi
 
           # --- Sentry (Enhanced with Release Health checks) ---
-          SENTRY_STATUS=$(ko)
-          # prefer explicit ReleaseHealth signals (release + autoSessionTracking)
-          if grep -q "autoSessionTracking.*true" "$page" && grep -q "release.*tps-star@" "$page"; then
-            SENTRY_STATUS=$(ok)
-          # fallback: if EXPECT_SENTRY_DSN is set and present in page, accept it
-          elif [ -n "${EXPECT_SENTRY_DSN:-}" ] && grep -q "${EXPECT_SENTRY_DSN}" "$page"; then
-            SENTRY_STATUS=$(ok)
-          # last resort: detect generic SDK presence + autoSessionTracking
-          elif grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && grep -q "autoSessionTracking" "$page"; then
-            SENTRY_STATUS=$(ok)
+          if [ -n "${EXPECT_SENTRY_DSN:-}" ]; then
+            if grep -q "${EXPECT_SENTRY_DSN}" "$page" && \
+               grep -q "autoSessionTracking.*true" "$page" && \
+               grep -q "release.*tps-star@" "$page"; then
+              SENTRY_STATUS=$(ok)
+            else
+              SENTRY_STATUS=$(ko)
+            fi
+          else
+            if grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && \
+               grep -q "autoSessionTracking" "$page"; then
+              SENTRY_STATUS=$(ok)
+            else
+              SENTRY_STATUS=$(ko)
+            fi
           fi
 
           # Expose outputs
