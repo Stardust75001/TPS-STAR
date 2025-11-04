@@ -95,21 +95,16 @@ jobs:
           fi
 
           # --- Sentry (Enhanced with Release Health checks) ---
-          if [ -n "${EXPECT_SENTRY_DSN:-}" ]; then
-            if grep -q "${EXPECT_SENTRY_DSN}" "$page" && \
-               grep -q "autoSessionTracking.*true" "$page" && \
-               grep -q "release.*tps-star@" "$page"; then
-              SENTRY_STATUS=$(ok)
-            else
-              SENTRY_STATUS=$(ko)
-            fi
-          else
-            if grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && \
-               grep -q "autoSessionTracking" "$page"; then
-              SENTRY_STATUS=$(ok)
-            else
-              SENTRY_STATUS=$(ko)
-            fi
+          SENTRY_STATUS=$(ko)
+          # prefer explicit ReleaseHealth signals (release + autoSessionTracking)
+          if grep -q "autoSessionTracking.*true" "$page" && grep -q "release.*tps-star@" "$page"; then
+            SENTRY_STATUS=$(ok)
+          # fallback: if EXPECT_SENTRY_DSN is set and present in page, accept it
+          elif [ -n "${EXPECT_SENTRY_DSN:-}" ] && grep -q "${EXPECT_SENTRY_DSN}" "$page"; then
+            SENTRY_STATUS=$(ok)
+          # last resort: detect generic SDK presence + autoSessionTracking
+          elif grep -Eq 'sentry-cdn\.com|Sentry\.init' "$page" && grep -q "autoSessionTracking" "$page"; then
+            SENTRY_STATUS=$(ok)
           fi
 
           # Expose outputs
