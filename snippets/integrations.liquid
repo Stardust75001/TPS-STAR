@@ -1,5 +1,4 @@
 {%- comment -%}
-<<<<<<< Updated upstream
   THE PET SOCIETY — Enhanced Integrations Bootstrap
   Hybrid approach: Metafields (primary) + Settings (fallback)
 
@@ -23,7 +22,7 @@
   # Core analytics platforms - Shopify standard lowercase keys
   assign ga4_token              = integ.ga4_token              | default: integ.GA4_Token              | strip
   assign meta_pixel_id          = integ.meta_pixel_id          | default: integ.Meta_Pixel_ID           | strip
-  assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | default: shop.metafields.custom.sentry_dsn | strip
+  assign sentry_dsn             = integ.sentry_dsn             | default: integ.Sentry_DSN              | strip
   assign cloudflare_beacon_token= integ.cloudflare_beacon_token| default: integ.Cloudflare_Token        | strip
   assign slack_webhook_url      = integ.slack_webhook_url      | default: integ.Slack_Webhook_URL       | strip
   # ahrefs_api_key is intentionally not exposed in the theme; keep API keys in CI or server-side secrets
@@ -45,22 +44,6 @@
   # Verification meta tags - likely stored separately
   assign gsc_verification       = integ.gsc_verification       | strip
   assign ahrefs_verification    = integ.ahrefs_verification    | strip
-=======
-  THE PET SOCIETY — Integrations bootstrap (orphan snippet)
-  Centralise les métachamps custom_integrations.* :
-    - ga4_token
-    - meta_pixel_id
-    - sentry_dsn
-    - cloudflare_beacon_token
-  À inclure dans theme.liquid : {{ render 'tps-integrations' }}
-{%- endcomment -%}
-{%- liquid
-  assign integ      = shop.metafields.custom_integrations
-  assign GA4_ID     = integ.ga4_token                | default: '' | strip
-  assign META_ID    = integ.meta_pixel_id            | default: '' | strip
-  assign SENTRY_DSN = integ.sentry_dsn               | default: '' | strip
-  assign CF_TOKEN   = integ.cloudflare_beacon_token  | default: '' | strip
->>>>>>> Stashed changes
 -%}
 
 {%- comment -%} ───────── Meta Verification Tags ───────── {%- endcomment -%}
@@ -158,15 +141,9 @@
 
     // === SENTRY ===
     if (cfg.sentry_dsn) {
-<<<<<<< Updated upstream
       loadScript('https://browser.sentry-cdn.com/8.36.0/bundle.tracing.replay.min.js', 'sentry-sdk')
       .then(function(){
         // eslint-disable-next-line no-undef
-=======
-      loadScript('https://browser.sentry-cdn.com/7.120.1/bundle.tracing.replay.min.js', 'sentry-sdk')
-      .then(function () {
-        // global Sentry is provided by the CDN bundle
->>>>>>> Stashed changes
         Sentry.init({
           dsn: cfg.sentry_dsn,
           integrations: [
@@ -195,47 +172,11 @@
             }
           }
         });
-<<<<<<< Updated upstream
         console.log('[TPS-STAR] Sentry initialized');
       })
       .catch(function(){
         console.warn('[TPS] Sentry SDK load failed');
       });
-=======
-
-        Sentry.configureScope(function(scope) {
-          scope.setTag("store", "{{ shop.permanent_domain }}");
-          scope.setTag("theme", "tps-star");
-          scope.setTag("locale", "{{ request.locale.iso_code }}");
-          scope.setContext("page", {
-            type: "{{ request.page_type }}",
-            url: "{{ canonical_url }}",
-            title: "{{ page_title | escape }}"
-          });
-          scope.setContext("shop", {
-            name: "{{ shop.name | escape }}",
-            domain: "{{ shop.permanent_domain }}",
-            currency: "{{ shop.currency }}"
-          });
-        });
-
-        if (console && console.log) {
-          try { console.log('[TPS-STAR] Sentry initialized with DSN:', String(cfg.sentry_dsn).slice(0, 20) + '…'); } catch(e){}
-        }
-      }).catch(function(){ console.warn('[TPS-STAR] Failed to load Sentry SDK'); });
-    }
-
-    // === GA4 ===
-    if (cfg.ga4) {
-      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(cfg.ga4), 'ga4')
-      .then(function () {
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-        window.gtag = gtag;
-        gtag('js', new Date());
-        gtag('config', cfg.ga4, { 'anonymize_ip': true });
-      }).catch(function(){ console.warn('[TPS-STAR] Failed to load GA4'); });
->>>>>>> Stashed changes
     }
 
     // === META PIXEL ===
@@ -249,7 +190,6 @@
         s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
       })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
-<<<<<<< Updated upstream
       try {
         console.log('[TPS] meta id:', cfg.meta_pixel_id, typeof cfg.meta_pixel_id);
         fbq('init', cfg.meta_pixel_id);
@@ -261,16 +201,6 @@
       }
     } else {
       console.warn('[TPS] Meta Pixel ID not configured or invalid:', cfg.meta_pixel_id);
-=======
-      try { fbq('init', cfg.meta_pixel_id); fbq('track', 'PageView'); }
-      catch(e) { console.warn('[TPS-STAR] Meta Pixel init failed'); }
-
-      // Noscript fallback
-      var ns = document.createElement('noscript');
-      ns.innerHTML = '<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=' +
-        encodeURIComponent(cfg.meta_pixel_id) + '&ev=PageView&noscript=1"/>';
-      document.body.appendChild(ns);
->>>>>>> Stashed changes
     }
 
     // === CLOUDFLARE BEACON ===
@@ -316,7 +246,7 @@
 
     // === SNAPCHAT PIXEL ===
     if (cfg.snapchat_pixel) {
-      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)}(window,document,'https://sc-static.net/scevent.min.js');
+      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function(){a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};a.queue=[];var s="script";var r=t.createElement(s);r.async=!0;r.src=n;var u=t.getElementsByTagName(s)[0];u.parentNode.insertBefore(r,u)})(window,document,'https://sc-static.net/scevent.min.js');
       snaptr('init', cfg.snapchat_pixel, {'user_email': '{{ customer.email | sha256 | default: "" }}'});
       snaptr('track', 'PAGE_VIEW');
     }
@@ -364,7 +294,6 @@
 
     // === TPS-STAR ENHANCED TRACKING ===
     window.TPS.pageReady = function() {
-<<<<<<< Updated upstream
       console.log('[TPS-STAR] Page tracking initialized');
 
       // Enhanced tracking with page context
@@ -384,18 +313,6 @@
           'locale': {{ request.locale.iso_code | json }},
           'theme': 'tps-star'
         });
-=======
-      if (console && console.log) console.log('[TPS-STAR] Page tracking initialized');
-      if (window.gtag) {
-        try {
-          gtag('event', 'page_view', {
-            'page_type': '{{ request.page_type }}',
-            'store_name': '{{ shop.name | escape }}',
-            'locale': '{{ request.locale.iso_code }}',
-            'theme': 'tps-star'
-          });
-        } catch(e) {}
->>>>>>> Stashed changes
       }
 
       // Send data to free analytics platforms
