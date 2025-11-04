@@ -20,3 +20,11 @@ TPS-STAR
 TPS-STAR-WORKTREE
 *.bak
 assets/sentry-bundle.tracing.min.js
+.venv/
+venv*/
+repo.git
+BACKUPS/
+reports/
+*.pack
+*.idx
+*.bak
