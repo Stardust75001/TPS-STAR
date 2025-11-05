@@ -1,0 +1,153 @@
+{%- comment -%}
+  Sélecteur de couleurs basé sur Pantone Metaobjects
+  Usage: {% render 'product-variant-color-selector', product: product %}
+{%- endcomment -%}
+
+{%- liquid
+  assign color_variants = product.metafields.custom.color_variants.value
+  assign current_variant = product.selected_or_first_available_variant
+  assign color_option_index = nil
+  
+  for option in product.options_with_values
+    if option.name contains 'Color' or option.name contains 'Couleur'
+      assign color_option_index = forloop.index0
+      break
+    endif
+  endfor
+-%}
+
+{%- if color_variants != blank and color_option_index != nil -%}
+<div class="product-form__color-selector mt-3 mb-3" data-color-selector {{ block.shopify_attributes }}>
+  <fieldset class="js product-form__input">
+    <legend class="form__label">
+      {{ product.options_with_values[color_option_index].name }}:
+      <span class="color-selector__label-value" data-selected-color>
+        {{ current_variant.options[color_option_index] }}
+      </span>
+    </legend>
+    
+    <div class="color-selector__options d-flex flex-wrap gap-2 mt-2" role="radiogroup">
+      {%- for color_variant in color_variants -%}
+        {%- liquid
+          assign color_name = color_variant.name.value
+          assign color_hex = color_variant.hex.value
+          assign color_code = color_variant.code.value
+          
+          # Trouver la variante correspondante
+          assign matching_variant = nil
+          for variant in product.variants
+            if variant.options[color_option_index] == color_name
+              assign matching_variant = variant
+              break
+            endif
+          endfor
+          
+          assign is_available = false
+          assign is_selected = false
+          
+          if matching_variant
+            assign is_available = matching_variant.available
+            if current_variant.id == matching_variant.id
+              assign is_selected = true
+            endif
+          endif
+        -%}
+        
+        {%- if matching_variant -%}
+        <div class="color-selector__option-wrapper">
+          <input
+            type="radio"
+            id="color-{{ color_code | handle }}-{{ section.id }}"
+            name="color-{{ section.id }}"
+            value="{{ color_name }}"
+            data-variant-id="{{ matching_variant.id }}"
+            data-color-hex="{{ color_hex }}"
+            data-color-name="{{ color_name }}"
+            data-color-code="{{ color_code }}"
+            class="color-selector__input sr-only"
+            {% if is_selected %}checked{% endif %}
+            {% unless is_available %}disabled{% endunless %}>
+          
+          <label
+            for="color-{{ color_code | handle }}-{{ section.id }}"
+            class="color-selector__label d-flex align-items-center p-2 border rounded text-decoration-none {% unless is_available %}text-muted{% endunless %}"
+            title="{{ color_name }} ({{ color_code }}){% unless is_available %} - Épuisé{% endunless %}"
+            style="cursor: pointer; {% unless is_available %}cursor: not-allowed;{% endunless %}">
+            
+            <span class="color-selector__swatch me-2 border"
+                  style="width: 24px; height: 24px; border-radius: 50%; background-color: {{ color_hex }};">
+            </span>
+            
+            <span class="color-selector__name">
+              <span class="fw-normal">{{ color_name }}</span>
+              <small class="text-muted d-block">{{ color_code }}</small>
+            </span>
+            
+            {% unless is_available %}
+              <span class="color-selector__unavailable text-danger ms-auto">✕</span>
+            {% endunless %}
+          </label>
+        </div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </fieldset>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const colorSelector = document.querySelector('[data-color-selector]');
+  if (!colorSelector) return;
+  
+  const colorInputs = colorSelector.querySelectorAll('.color-selector__input');
+  const selectedLabel = colorSelector.querySelector('[data-selected-color]');
+  
+  colorInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      if (this.checked) {
+        const colorName = this.dataset.colorName;
+        const variantId = this.dataset.variantId;
+        
+        // Mettre à jour le label
+        if (selectedLabel) {
+          selectedLabel.textContent = colorName;
+        }
+        
+        // Mettre à jour les styles des labels
+        colorInputs.forEach(inp => {
+          const label = inp.nextElementSibling;
+          if (inp === this) {
+            label.classList.add('border-primary', 'bg-light');
+          } else {
+            label.classList.remove('border-primary', 'bg-light');
+          }
+        });
+        
+        // Déclencher changement de variante
+        const variantIdInput = document.querySelector('[name="id"]');
+        if (variantIdInput) {
+          variantIdInput.value = variantId;
+          variantIdInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Event personnalisé pour intégrations
+        document.dispatchEvent(new CustomEvent('variant:change', {
+          detail: {
+            variant_id: variantId,
+            color: colorName,
+            color_hex: this.dataset.colorHex,
+            color_code: this.dataset.colorCode
+          }
+        }));
+      }
+    });
+  });
+  
+  // Initialiser le style du label sélectionné
+  const checkedInput = colorSelector.querySelector('.color-selector__input:checked');
+  if (checkedInput) {
+    checkedInput.nextElementSibling.classList.add('border-primary', 'bg-light');
+  }
+});
+</script>
+{%- endif -%}

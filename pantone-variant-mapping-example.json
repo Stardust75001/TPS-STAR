@@ -1,0 +1,16 @@
+{
+  "exemple_mapping": {
+    "pantone_metaobject": {
+      "name": "Midnight Black",
+      "code": "19-3911 TPX", 
+      "hex": "#2B2B2B"
+    },
+    "product_variant": {
+      "option1": "Color",
+      "option1_value": "Midnight Black",
+      "option2": "Size", 
+      "option2_value": "M"
+    }
+  },
+  "important": "Le 'name' du metaobject doit être identique à 'option1_value' de la variante"
+}

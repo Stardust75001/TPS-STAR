@@ -78,6 +78,11 @@
                     {% render 'product-block-rating-natif', block: block %}
                   {%- when 'price' -%}
                     {% render 'product-block-price', block: block, form: form %}
+
+                  {%- comment -%} 🎨 AJOUTER ICI LE SÉLECTEUR PANTONE {%- endcomment -%}
+                  {%- when 'pantone_color_selector' -%}
+                    {% render 'product-variant-color-selector', product: product, block: block %}
+
                   {%- when 'variant_selector' -%}
                     {% render 'product-block-variant-selector', block: block %}
                   {%- when 'purchase_options' -%}
@@ -1615,7 +1620,7 @@
           "options": [
             { "group": "Principal", "value": "bg-primary text-white", "label": "Primaire" },
             { "group": "Principal", "value": "bg-secondary text-white", "label": "Secondaire" },
-            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiaire" },
+            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiary" },
             { "group": "Intermédiaire", "value": "bg-white text-dark", "label": "White" },
             { "group": "Intermédiaire", "value": "bg-light text-body", "label": "Light" },
             { "group": "Intermédiaire", "value": "bg-dark text-white", "label": "Dark" },
@@ -1796,7 +1801,7 @@
           "options": [
             { "group": "Principal", "value": "bg-primary text-white", "label": "Primaire" },
             { "group": "Principal", "value": "bg-secondary text-white", "label": "Secondaire" },
-            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiaire" },
+            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiary" },
             { "group": "Intermédiaire", "value": "bg-white text-dark", "label": "White" },
             { "group": "Intermédiaire", "value": "bg-light text-body", "label": "Light" },
             { "group": "Intermédiaire", "value": "bg-dark text-white", "label": "Dark" },
@@ -2918,7 +2923,7 @@
           "options": [
             { "group": "Principal", "value": "bg-primary text-white", "label": "Primaire" },
             { "group": "Principal", "value": "bg-secondary text-white", "label": "Secondaire" },
-            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiaire" },
+            { "group": "Principal", "value": "bg-tertiary text-white", "label": "Tertiary" },
             { "group": "Intermédiaire", "value": "bg-white text-dark", "label": "White" },
             { "group": "Intermédiaire", "value": "bg-light text-body", "label": "Light" },
             { "group": "Intermédiaire", "value": "bg-dark text-white", "label": "Dark" },
@@ -3733,7 +3738,7 @@
             { "value": "", "label": "Default" },
             { "value": "border-primary", "label": "Primaire" },
             { "value": "border-secondary", "label": "Secondaire" },
-            { "value": "border-tertiary", "label": "Tertiaire" },
+            { "value": "border-tertiary", "label": "Tertiary" },
             { "value": "border-dark", "label": "Dark" },
             { "value": "border-success", "label": "Success" },
             { "value": "border-warning", "label": "Avertissement" },
@@ -3826,7 +3831,7 @@
             { "value": "", "label": "Default" },
             { "value": "border-primary", "label": "Primaire" },
             { "value": "border-secondary", "label": "Secondaire" },
-            { "value": "border-tertiary", "label": "Tertiaire" },
+            { "value": "border-tertiary", "label": "Tertiary" },
             { "value": "border-dark", "label": "Dark" },
             { "value": "border-success", "label": "Success" },
             { "value": "border-warning", "label": "Avertissement" },
@@ -3930,16 +3935,16 @@
             { "group": "Normal", "value": "btn-dark", "label": "Dark" },
             { "group": "Normal", "value": "btn-primary", "label": "Primaire" },
             { "group": "Normal", "value": "btn-secondary", "label": "Secondaire" },
-            { "group": "Normal", "value": "btn-tertiary", "label": "Tertiaire" },
+            { "group": "Normal", "value": "btn-tertiary", "label": "Tertiary" },
             { "group": "Normal", "value": "btn-success", "label": "Success" },
             { "group": "Normal", "value": "btn-danger", "label": "Danger" },
-            { "group": "Normal", "value": "btn-warning", "label": "Avertissement" },
+            { "group": "Normal", "value": "btn-warning", "label": "Warning" },
             { "group": "Normal", "value": "btn-info", "label": "Info" },
             { "group": "Contour", "value": "btn-outline-light", "label": "Contour Claire" },
             { "group": "Contour", "value": "btn-outline-dark", "label": "Contour Sombre" },
             { "group": "Contour", "value": "btn-outline-primary", "label": "Contour Primaire" },
             { "group": "Contour", "value": "btn-outline-secondary", "label": "Contour Secondaire" },
-            { "group": "Contour", "value": "btn-outline-tertiary", "label": "Contour Tertiaire" },
+            { "group": "Contour", "value": "btn-outline-tertiaire" },
             { "group": "Contour", "value": "btn-outline-success", "label": "Contour Succès" },
             { "group": "Contour", "value": "btn-outline-danger", "label": "Contour Danger" },
             {
@@ -3978,9 +3983,48 @@
           "label": "Page"
         }
       ]
+    },
+    {
+      "type": "pantone_color_selector",
+      "name": "🎨 Pantone Color Selector",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Affiche un sélecteur de couleurs basé sur vos metaobjects Pantone Color. Assurez-vous d'avoir configuré le metafield 'Product Color Variants' sur vos produits."
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Titre personnalisé",
+          "default": "Couleur",
+          "info": "Laissez vide pour utiliser le nom de l'option de variante"
+        },
+        {
+          "type": "header",
+          "content": "Block spacing"
+        },
+        {
+          "type": "range",
+          "id": "mt",
+          "label": "Top margin",
+          "min": 0,
+          "max": 20,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "range",
+          "id": "mb",
+          "label": "Bottom margin",
+          "min": 0,
+          "max": 20,
+          "step": 1,
+          "default": 3
+        }
+      ]
     }
   ],
-  "templates": ["product"],
   "presets": [
     {
       "name": "Product (template)",
