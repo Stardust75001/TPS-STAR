@@ -216,3 +216,44 @@
 </script>
 
 {% schema %}
+{
+  "type": "pantone_color_selector",
+  "name": "🎨 Pantone Color Selector",
+  "limit": 1,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Affiche un sélecteur de couleurs basé sur vos metaobjects Pantone Color. Configurez le metafield 'Product Color Variants' sur vos produits."
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Titre personnalisé",
+      "default": "Couleur",
+      "info": "Laissez vide pour utiliser le nom de l'option de variante"
+    },
+    {
+      "type": "header",
+      "content": "Espacement"
+    },
+    {
+      "type": "range",
+      "id": "mt",
+      "label": "Marge supérieure",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "mb",
+      "label": "Marge inférieure",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    }
+  ]
+}
+{% endschema %}
