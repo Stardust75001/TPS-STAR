@@ -94,6 +94,55 @@
   </fieldset>
 </div>
 
+<style>
+.color-selector__label {
+  border-color: #dee2e6 !important;
+  transition: all 0.3s ease;
+}
+
+.color-selector__label:hover:not(:has(.color-selector__input:disabled)) {
+  border-color: #007bff !important;
+  background-color: rgba(0, 123, 255, 0.05) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.color-selector__input:checked + .color-selector__label {
+  border-color: #007bff !important;
+  background-color: rgba(0, 123, 255, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.color-selector__input:checked + .color-selector__label::after {
+  content: '✓';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 20px;
+  height: 20px;
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.color-selector__swatch {
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 576px) {
+  .color-selector__label {
+    min-width: 140px !important;
+    padding: 8px !important;
+  }
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const colorSelector = document.querySelector('[data-color-selector]');
@@ -104,50 +153,99 @@ document.addEventListener('DOMContentLoaded', function() {
 
   colorInputs.forEach(input => {
     input.addEventListener('change', function() {
-      if (this.checked) {
+      if (this.checked && !this.disabled) {
         const colorName = this.dataset.colorName;
         const variantId = this.dataset.variantId;
 
-        // Mettre à jour le label
+        // Animation du label
         if (selectedLabel) {
-          selectedLabel.textContent = colorName;
+          selectedLabel.style.opacity = '0.5';
+          setTimeout(() => {
+            selectedLabel.textContent = colorName;
+            selectedLabel.style.opacity = '1';
+          }, 150);
         }
 
-        // Mettre à jour les styles des labels
-        colorInputs.forEach(inp => {
-          const label = inp.nextElementSibling;
-          if (inp === this) {
-            label.classList.add('border-primary', 'bg-light');
-          } else {
-            label.classList.remove('border-primary', 'bg-light');
-          }
-        });
-
-        // Déclencher changement de variante
-        const variantIdInput = document.querySelector('[name="id"]');
-        if (variantIdInput) {
+        // Changement de variante avec vérification
+        const variantIdInput = document.querySelector('input[name="id"]');
+        if (variantIdInput && variantIdInput.value !== variantId) {
           variantIdInput.value = variantId;
-          variantIdInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+          // Événements multiples pour compatibilité
+          ['change', 'input'].forEach(eventType => {
+            variantIdInput.dispatchEvent(new Event(eventType, { bubbles: true }));
+          });
+
+          // Compatibilité thème Shopify
+          if (window.productForm && typeof window.productForm.onVariantChange === 'function') {
+            window.productForm.onVariantChange();
+          }
         }
 
-        // Event personnalisé pour intégrations
+        // Analytics tracking
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'select_item', {
+            item_list_id: 'color_variants',
+            item_list_name: 'Pantone Color Selection',
+            items: [{
+              item_id: variantId,
+              item_name: colorName,
+              item_category: 'Color Variant',
+              item_variant: this.dataset.colorCode
+            }]
+          });
+        }
+
+        // Event personnalisé amélioré
         document.dispatchEvent(new CustomEvent('variant:change', {
           detail: {
             variant_id: variantId,
             color: colorName,
             color_hex: this.dataset.colorHex,
-            color_code: this.dataset.colorCode
+            color_code: this.dataset.colorCode,
+            timestamp: Date.now()
           }
         }));
       }
     });
-  });
 
-  // Initialiser le style du label sélectionné
-  const checkedInput = colorSelector.querySelector('.color-selector__input:checked');
-  if (checkedInput) {
-    checkedInput.nextElementSibling.classList.add('border-primary', 'bg-light');
-  }
+    // Effets visuels au survol
+    const label = input.nextElementSibling;
+    if (label && !input.disabled) {
+      label.addEventListener('mouseenter', function() {
+        if (!input.checked) {
+          this.style.transform = 'translateY(-1px)';
+        }
+      });
+
+      label.addEventListener('mouseleave', function() {
+        if (!input.checked) {
+          this.style.transform = 'translateY(0)';
+        }
+      });
+    }
+  });
 });
 </script>
+{%- else -%}
+<!-- Mode debug pour développement -->
+{%- if template contains 'product' -%}
+  <div class="alert alert-info small mt-2" style="display: none;" id="pantone-debug">
+    <strong>🔍 Debug Pantone Color Selector:</strong>
+    <ul class="mb-0 mt-1 small">
+      <li><strong>Metafield color_variants:</strong> {{ color_variants | default: 'Non configuré' }}</li>
+      <li><strong>Options produit:</strong> {{ product.options | join: ', ' }}</li>
+      <li><strong>Variantes trouvées:</strong> {{ product.variants.size }}</li>
+      <li><strong>Option couleur détectée:</strong> {{ color_option_index | default: 'Aucune' }}</li>
+    </ul>
+    <small class="text-muted">Ajoutez <code>?debug=pantone</code> à l'URL pour voir ce debug</small>
+  </div>
+  <script>
+    // Afficher debug en mode développement
+    if (window.location.search.includes('debug=pantone')) {
+      const debugEl = document.getElementById('pantone-debug');
+      if (debugEl) debugEl.style.display = 'block';
+    }
+  </script>
+{%- endif -%}
 {%- endif -%}

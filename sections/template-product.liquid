@@ -1,9 +1,6 @@
 {% comment %}
   ---------------------------------------------------------
   Copyright © 2019/2024 Theme Shopiweb Premium. Tous droits réservés.
-  La copie, la modification, la distribution ou l'utilisation
-  non autorisée de ce code ou de toute partie de celui-ci est formellement interdite.
-  Les contrevenants seront poursuivis dans toute la mesure permise par la loi.
   ---------------------------------------------------------
 {% endcomment %}
 
@@ -138,16 +135,12 @@
           %}
 
           <div class="d-flex justify-content-between align-items-center my-4">
-            {% if section.settings.show_breadcrumbs
-              and section.settings.breadcrumb_position == 'bottom'
-            %}
+            {% if section.settings.show_breadcrumbs and section.settings.breadcrumb_position == 'bottom' %}
               <div class="breadcrumbs-wrapper me-6">
                 {% render 'breadcrumbs' %}
               </div>
             {% endif %}
-            {% if section.settings.show_share_btn
-              and section.settings.share_btn_position == 'bottom'
-            %}
+            {% if section.settings.show_share_btn and section.settings.share_btn_position == 'bottom' %}
               <div class="ms-auto">
                 {% render 'share-button', title: product.title, url: product.url %}
               </div>
@@ -221,134 +214,120 @@
 
 {% schema %}
 {
-  "type": "pantone_color_selector",
-  "name": "🎨 Pantone Color Selector",
-  "limit": 1,
+  "name": "Product Template",
   "settings": [
     {
-      "type": "paragraph",
-      "content": "Affiche un sélecteur de couleurs basé sur vos metaobjects Pantone Color. Configurez le metafield 'Product Color Variants' sur vos produits."
+      "type": "header",
+      "content": "Layout Settings"
     },
     {
-      "type": "text",
-      "id": "title",
-      "label": "Titre personnalisé",
-      "default": "Couleur",
-      "info": "Laissez vide pour utiliser le nom de l'option de variante"
+      "type": "range",
+      "id": "pt",
+      "label": "Padding Top",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "pb",
+      "label": "Padding Bottom",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 5
     },
     {
       "type": "header",
-      "content": "Espacement"
+      "content": "Product Content"
     },
     {
-      "type": "range",
-      "id": "mt",
-      "label": "Marge supérieure",
-      "min": 0,
-      "max": 5,
-      "step": 1,
-      "default": 3
+      "type": "checkbox",
+      "id": "product_content_show_bg_gradient",
+      "label": "Show background gradient",
+      "default": false
     },
     {
-      "type": "range",
-      "id": "mb",
-      "label": "Marge inférieure",
-      "min": 0,
-      "max": 5,
-      "step": 1,
-      "default": 3
+      "type": "color_background",
+      "id": "product_content_bg_gradient",
+      "label": "Background gradient"
+    },
+    {
+      "type": "header",
+      "content": "Navigation"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumbs",
+      "label": "Show breadcrumbs",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "breadcrumb_position",
+      "label": "Breadcrumb position",
+      "options": [
+        { "value": "top", "label": "Top" },
+        { "value": "bottom", "label": "Bottom" }
+      ],
+      "default": "top"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_share_btn",
+      "label": "Show share button",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "share_btn_position",
+      "label": "Share button position",
+      "options": [
+        { "value": "top", "label": "Top" },
+        { "value": "bottom", "label": "Bottom" }
+      ],
+      "default": "top"
     }
   ],
   "blocks": [
     {
+      "type": "@app"
+    },
+    {
       "type": "vendor",
-      "name": "🛍️ Fournisseur",
-      "settings": [
-        {
-          "type": "text",
-          "id": "vendor",
-          "label": "Nom du fournisseur",
-          "default": "Fournisseur inconnu"
-        }
-      ]
+      "name": "🛍️ Vendor",
+      "limit": 1
     },
     {
       "type": "title",
-      "name": "🛒 Titre du produit",
-      "settings": [
-        {
-          "type": "text",
-          "id": "title",
-          "label": "Titre personnalisé",
-          "default": "Nom du produit"
-        }
-      ]
+      "name": "📝 Product Title",
+      "limit": 1
     },
     {
       "type": "sku",
       "name": "🔖 SKU",
-      "settings": [
-        {
-          "type": "text",
-          "id": "sku",
-          "label": "SKU",
-          "default": "SKU inconnu"
-        }
-      ]
+      "limit": 1
     },
     {
       "type": "subtitle",
-      "name": "📜 Sous-titre",
-      "settings": [
-        {
-          "type": "text",
-          "id": "subtitle",
-          "label": "Sous-titre personnalisé",
-          "default": "Sous-titre du produit"
-        }
-      ]
+      "name": "📜 Subtitle",
+      "limit": 1
     },
     {
       "type": "rating_shopitrust",
-      "name": "⭐️ Note Shoptitrust",
-      "settings": [
-        {
-          "type": "range",
-          "id": "rating",
-          "label": "Note",
-          "min": 0,
-          "max": 5,
-          "step": 0.1,
-          "default": 4.5
-        }
-      ]
+      "name": "⭐️ Rating Shopitrust",
+      "limit": 1
     },
     {
       "type": "rating_natif",
-      "name": "⭐️ Note Natif",
-      "settings": [
-        {
-          "type": "range",
-          "id": "rating",
-          "label": "Note",
-          "min": 0,
-          "max": 5,
-          "step": 0.1,
-          "default": 4.5
-        }
-      ]
+      "name": "⭐️ Rating Natif",
+      "limit": 1
     },
     {
       "type": "price",
-      "name": "💰 Prix",
-      "settings": [
-        {
-          "type": "text",
-          "id": "price",
-          "label": "Prix",
-          "default": "Prix inconnu"
-        }
-      ]
+      "name": "💰 Price",
+      "limit": 1
     },
     {
       "type": "pantone_color_selector",
@@ -389,6 +368,102 @@
           "default": 3
         }
       ]
+    },
+    {
+      "type": "variant_selector",
+      "name": "🎛️ Variant Selector",
+      "limit": 1
+    },
+    {
+      "type": "purchase_options",
+      "name": "💳 Purchase Options",
+      "limit": 1
+    },
+    {
+      "type": "inventory_bar",
+      "name": "📊 Inventory Bar",
+      "limit": 1
+    },
+    {
+      "type": "gift_card",
+      "name": "🎁 Gift Card",
+      "limit": 1
+    },
+    {
+      "type": "buy_buttons",
+      "name": "🛒 Buy Buttons",
+      "limit": 1
+    },
+    {
+      "type": "payment_icons",
+      "name": "💳 Payment Icons",
+      "limit": 1
+    },
+    {
+      "type": "animated_stories",
+      "name": "📱 Animated Stories",
+      "limit": 1
+    },
+    {
+      "type": "qty_breaks",
+      "name": "📦 Quantity Breaks",
+      "limit": 1
+    },
+    {
+      "type": "text",
+      "name": "📝 Text Block"
+    },
+    {
+      "type": "scrolling_text",
+      "name": "📜 Scrolling Text"
+    },
+    {
+      "type": "limited_offer",
+      "name": "⏰ Limited Offer"
+    },
+    {
+      "type": "live_visitors",
+      "name": "👥 Live Visitors"
+    },
+    {
+      "type": "estimated_delivery",
+      "name": "🚚 Estimated Delivery"
+    },
+    {
+      "type": "liquid_code",
+      "name": "💻 Liquid Code"
+    },
+    {
+      "type": "separator",
+      "name": "➖ Separator"
+    },
+    {
+      "type": "media",
+      "name": "🎬 Media"
+    },
+    {
+      "type": "delivery_info",
+      "name": "📦 Delivery Info"
+    },
+    {
+      "type": "accordion",
+      "name": "📋 Accordion"
+    },
+    {
+      "type": "personalization",
+      "name": "✨ Personalization"
+    },
+    {
+      "type": "trust_badges",
+      "name": "🛡️ Trust Badges"
+    },
+    {
+      "type": "testimonials",
+      "name": "💬 Testimonials"
+    },
+    {
+      "type": "tabs",
+      "name": "📑 Tabs"
     }
   ]
 }
