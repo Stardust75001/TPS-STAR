@@ -32,6 +32,10 @@
   data-product-handle="{{ product.handle }}"
 >
   <div class="container">
+    
+    {%- comment -%} 🎨 SÉLECTEUR PRODUITS LIÉS PAR COULEUR {%- endcomment -%}
+    {% render 'product-color-variants' %}
+
     <div class="d-flex justify-content-between align-items-center my-4">
       {% if section.settings.show_breadcrumbs and section.settings.breadcrumb_position == 'top' %}
         <div class="breadcrumbs-wrapper">
