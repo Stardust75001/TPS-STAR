@@ -28,6 +28,10 @@
   class="{{ pt }} {{ pb }}"
   data-product-handle="{{ product.handle }}"
 >
+    
+    {%- comment -%} 🎨 SÉLECTEUR PRODUITS LIÉS PAR COULEUR {%- endcomment -%}
+    {% render 'product-color-variants' %}
+
   <div class="container">
     
     {%- comment -%} 🎨 SÉLECTEUR PRODUITS LIÉS PAR COULEUR {%- endcomment -%}
