@@ -254,6 +254,138 @@
       "step": 1,
       "default": 3
     }
+  ],
+  "blocks": [
+    {
+      "type": "vendor",
+      "name": "🛍️ Fournisseur",
+      "settings": [
+        {
+          "type": "text",
+          "id": "vendor",
+          "label": "Nom du fournisseur",
+          "default": "Fournisseur inconnu"
+        }
+      ]
+    },
+    {
+      "type": "title",
+      "name": "🛒 Titre du produit",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Titre personnalisé",
+          "default": "Nom du produit"
+        }
+      ]
+    },
+    {
+      "type": "sku",
+      "name": "🔖 SKU",
+      "settings": [
+        {
+          "type": "text",
+          "id": "sku",
+          "label": "SKU",
+          "default": "SKU inconnu"
+        }
+      ]
+    },
+    {
+      "type": "subtitle",
+      "name": "📜 Sous-titre",
+      "settings": [
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "Sous-titre personnalisé",
+          "default": "Sous-titre du produit"
+        }
+      ]
+    },
+    {
+      "type": "rating_shopitrust",
+      "name": "⭐️ Note Shoptitrust",
+      "settings": [
+        {
+          "type": "range",
+          "id": "rating",
+          "label": "Note",
+          "min": 0,
+          "max": 5,
+          "step": 0.1,
+          "default": 4.5
+        }
+      ]
+    },
+    {
+      "type": "rating_natif",
+      "name": "⭐️ Note Natif",
+      "settings": [
+        {
+          "type": "range",
+          "id": "rating",
+          "label": "Note",
+          "min": 0,
+          "max": 5,
+          "step": 0.1,
+          "default": 4.5
+        }
+      ]
+    },
+    {
+      "type": "price",
+      "name": "💰 Prix",
+      "settings": [
+        {
+          "type": "text",
+          "id": "price",
+          "label": "Prix",
+          "default": "Prix inconnu"
+        }
+      ]
+    },
+    {
+      "type": "pantone_color_selector",
+      "name": "🎨 Pantone Color Selector",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Affiche un sélecteur de couleurs basé sur vos metaobjects Pantone Color. Configurez le metafield 'Product Color Variants' sur vos produits."
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Titre personnalisé",
+          "default": "Couleur",
+          "info": "Laissez vide pour utiliser le nom de l'option de variante"
+        },
+        {
+          "type": "header",
+          "content": "Espacement"
+        },
+        {
+          "type": "range",
+          "id": "mt",
+          "label": "Marge supérieure",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "range",
+          "id": "mb",
+          "label": "Marge inférieure",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "default": 3
+        }
+      ]
+    }
   ]
 }
 {% endschema %}
