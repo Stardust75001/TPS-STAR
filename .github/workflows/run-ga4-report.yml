@@ -1,0 +1,47 @@
+name: 📊 Run GA4 Daily Report
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Tous les jours à 4h UTC
+  workflow_dispatch:
+
+jobs:
+  run-ga4-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install python-dotenv requests fpdf pandas
+
+      - name: Create .env from GitHub Secrets
+        run: |
+          echo "GA4_ACCESS_TOKEN=${{ secrets.GA4_ACCESS_TOKEN }}" >> .env
+          echo "GA4_PROPERTY_ID=${{ secrets.GA4_PROPERTY_ID }}" >> .env
+
+      - name: Run GA4 report script
+        run: python run_report.py
+
+      - name: 📎 Add GA4 report links to weekly report
+        run: |
+          REPORT_DATE=$(date +%Y%m%d)
+          mkdir -p rapports/
+          echo "## GA4 Daily Report – $REPORT_DATE" > rapports/tps-weekly-report-${REPORT_DATE}.md
+          echo "- [JSON](rapports/ga4-report-${REPORT_DATE}.json)" >> rapports/tps-weekly-report-${REPORT_DATE}.md
+          echo "- [CSV](rapports/ga4-report-${REPORT_DATE}.csv)" >> rapports/tps-weekly-report-${REPORT_DATE}.md
+          echo "- [PDF](rapports/ga4-report-${REPORT_DATE}.pdf)" >> rapports/tps-weekly-report-${REPORT_DATE}.md
+
+      - name: 📤 Send GA4 report to Slack
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload-file-path: rapports/ga4-report-${{ steps.date.outputs.date }}.json
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
