@@ -1,0 +1,3 @@
+- [GA4 JSON](rapports/ga4-report-20251109.json)
+- [CSV](rapports/ga4-report-20251109.csv)
+- [PDF](rapports/ga4-report-20251109.pdf)

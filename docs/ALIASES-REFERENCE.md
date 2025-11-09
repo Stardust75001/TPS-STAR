@@ -1,5 +1,5 @@
 # 🧠 TPS — Aliases ZSH (Référence)
-_Généré automatiquement le 2025-11-04 09:37:18_
+_Généré automatiquement le 2025-11-09 03:56:21_
 
 ## 🔗 Fichier source
 `~/.aliases`
@@ -71,6 +71,15 @@ alias SYNCMAIN='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-main.sh'
 ```
 ```bash
 alias SYNCALL='echo "🔁 Sync global : DEV + MAIN" && bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-dev.sh && bash ~/Shopify/TPS-STAR-WORKTREE/scripts/git-sync-main.sh && echo "✅ Sync DEV + MAIN terminé."'
+```
+```bash
+alias TPSSTARRAPPORTS='find /Users/asc/Shopify/TPS\ STAR/TPS-STAR-WORKTREE/rapports -type f -name "*.sh" -exec chmod +x {} \; && cd /Users/asc/Shopify/TPS\ STAR/TPS-STAR-WORKTREE/rapports && find . -type f -name "*.sh" -exec bash {} \;'
+```
+```bash
+alias RUN_GA4_REPORT="python run_report.py"
+```
+```bash
+alias TPSSTAR='cd ~/Shopify/TPS-STAR-WORKTREE'
 ```
 
 ## ⚙️ Fonctions (signatures)
