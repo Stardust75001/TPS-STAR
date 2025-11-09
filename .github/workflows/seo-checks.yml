@@ -6,112 +6,76 @@ on:
   workflow_dispatch: {}
 
 env:
-  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}              # ex: https://thepetsociety.paris
-  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}      # Token Ahrefs v3 (compte Enterprise)
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # optionnel
+  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}     # ex: https://thepetsociety.paris
+  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}  # Ahrefs v3 Bearer token (Enterprise)
+  # Slack est optionnel ; s'il n'existe pas, l'étape Slack est skip
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   seo:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 🔧 Ensure jq is available
-        run: |
-          set -e
-          command -v jq >/dev/null || { sudo apt-get update -y && sudo apt-get install -y jq; }
-          jq --version
-
-      - name: 📥 Fetch Ahrefs v3 metrics
+      - name: Fetch Ahrefs v3 metrics
         id: ahrefs
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
 
-          # Sanitize AHREFS_API_KEY: remove CR/LF and non-printable bytes
-          AHREFS_API_KEY_SANITIZED=$(printf '%s' "${AHREFS_API_KEY:-}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tr -cd '\11\12\15\40-\176')
-
-          # Masked preview for logs (first 4 / last 4) without showing full key
-          if [ -n "$AHREFS_API_KEY_SANITIZED" ]; then
-            MASKED_KEY=$(printf '%s' "$AHREFS_API_KEY_SANITIZED" | sed -E 's/^(.{4}).*(.{4})$/\1****\2/; t; s/.*/****/')
-          else
-            MASKED_KEY="(missing)"
+          if [[ -z "${AHREFS_API_KEY:-}" ]]; then
+            echo "❌ AHREFS_API_KEY manquant (secret requis pour l'API v3)"
+            exit 1
           fi
-          echo "Using AHREFS_API_KEY: $MASKED_KEY" >&2
-
-          # Fail early if AHREFS_API_KEY or TPS_DOMAIN missing
-          if [ -z "$AHREFS_API_KEY_SANITIZED" ]; then
-            echo "❌ AHREFS_API_KEY is missing or empty; set the repository secret AHREFS_API_KEY" >&2
-            echo "http_code=401" >> "$GITHUB_OUTPUT" || true
-            echo "error_msg=Missing AHREFS_API_KEY" >> "$GITHUB_OUTPUT" || true
+          if [[ -z "${TPS_DOMAIN:-}" ]]; then
+            echo "❌ TPS_DOMAIN manquant (ex: https://thepetsociety.paris)"
             exit 1
           fi
 
-          [[ -n "${TPS_DOMAIN:-}"     ]] || { echo "❌ TPS_DOMAIN manquant";     exit 1; }
-
-          # Override AHREFS_API_KEY with sanitized value for use below
-          AHREFS_API_KEY="$AHREFS_API_KEY_SANITIZED"
-
-          # Normalise le domaine (retire https://, http:// et le path)
+          # Normalise le domaine pour Ahrefs (sans schéma / chemin)
           TARGET="${TPS_DOMAIN#http://}"; TARGET="${TARGET#https://}"; TARGET="${TARGET%%/*}"
           echo "🎯 Target: $TARGET"
 
-          # Appel API v3
-            # Sanitize TARGET: remove CR, LF, trim spaces, remove non-printable bytes
-            TARGET=$(printf '%s' "$TARGET" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tr -cd '\11\12\15\40-\176')
-
-            # Dump DEBUG files so we can inspect invisible/control characters if curl still fails
-            mkdir -p out
-            printf '%s' "$TARGET" | hexdump -C > out/target_hex.txt || true
-            echo "$TARGET" > out/target_plain.txt || true
-            ENC_TARGET=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))' <<<"$TARGET" ) || ENC_TARGET=""
-            echo "$ENC_TARGET" > out/target_urlencoded.txt || true
-
-            echo "Using TARGET='$TARGET'" >&2
-            echo "Encoded: $ENC_TARGET" >&2
-
-            # Use --get + --data-urlencode to ensure TARGET is safely encoded and avoid malformed-URL errors
-            HTTP_CODE=$(curl -sS -D out/ahrefs_headers.txt -o out/ahrefs_metrics.json -w "%{http_code}" \
-              -H "Authorization: Bearer ${AHREFS_API_KEY}" \
-              --get \
-              --data-urlencode "target=${TARGET}" \
-              --data "mode=domain" \
-              --data "date=$(date +%F)" \
-              "https://api.ahrefs.com/v3/site-explorer/metrics")
+          # Appel v3 (metrics de base)
+          HTTP_CODE=$(curl -sS -w "%{http_code}" -o out/ahrefs_metrics.json \
+            -H "Authorization: Bearer ${AHREFS_API_KEY}" \
+            "https://api.ahrefs.com/v3/site-explorer/metrics?target=${TARGET}&mode=domain")
 
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
-          # Tente d'extraire les métriques clés si présentes
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "⚠️ Ahrefs renvoie $HTTP_CODE"
+            echo "::warning::Ahrefs v3 HTTP $HTTP_CODE (plan Enterprise requis ou token invalide)."
+          fi
+
+          # Crée un CSV minimal si possible
+          # On tente d’extraire des clés communes ; on tombe à 'n/a' si absentes
           DR=$(jq -r '..|objects|to_entries[]?|select(.key=="domain_rating")|.value' out/ahrefs_metrics.json | head -n1 || true)
           BL=$(jq -r '..|objects|to_entries[]?|select(.key=="backlinks")|.value'      out/ahrefs_metrics.json | head -n1 || true)
           RD=$(jq -r '..|objects|to_entries[]?|select(.key=="ref_domains")|.value'    out/ahrefs_metrics.json | head -n1 || true)
 
           DR=${DR:-n/a}; BL=${BL:-n/a}; RD=${RD:-n/a}
+          echo "domain,rating,backlinks,ref_domains"    > out/ahrefs_metrics.csv
+          echo "${TARGET},${DR},${BL},${RD}"           >> out/ahrefs_metrics.csv
 
-          # CSV rapide
-          echo "domain,rating,backlinks,ref_domains" > out/ahrefs_metrics.csv
-          echo "${TARGET},${DR},${BL},${RD}"        >> out/ahrefs_metrics.csv
+          # Expose pour Slack
+          echo "target=${TARGET}"    >> "$GITHUB_OUTPUT"
+          echo "dr=${DR}"            >> "$GITHUB_OUTPUT"
+          echo "bl=${BL}"            >> "$GITHUB_OUTPUT"
+          echo "rd=${RD}"            >> "$GITHUB_OUTPUT"
 
-          # Expose outputs
-          {
-            echo "target=${TARGET}"
-            echo "dr=${DR}"
-            echo "bl=${BL}"
-            echo "rd=${RD}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: 📦 Upload artefacts (JSON/CSV)
+      - name: Upload artefacts (JSON/CSV)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: seo-ahrefs
           path: out/
-          retention-days: 7
           if-no-files-found: warn
+          retention-days: 7
 
-      - name: 💬 Slack (résumé)
+      - name: Notify Slack
         if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
         env:
           URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -121,20 +85,15 @@ jobs:
           RD:     ${{ steps.ahrefs.outputs.rd }}
           CODE:   ${{ steps.ahrefs.outputs.http_code }}
         run: |
-          set -euo pipefail
           STATUS="OK"
-          [[ "${CODE:-200}" != "200" ]] && STATUS="WARN (${CODE:-?})"
+          [[ "${CODE:-200}" != "200" ]] && STATUS="WARN ($CODE)"
 
           cat > slack-temp.json <<JSON
           {
             "text": "*SEO Checks (Ahrefs v3)* — ${STATUS}",
             "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\n• *Target:* ${TARGET}\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\n<${URL_RUN}|Voir le run & télécharger l’artefact>"
-                }
+              { "type": "section", "text": { "type": "mrkdwn",
+                "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\n• *Target:* ${TARGET}\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\n<${URL_RUN}|Voir le run & télécharger l’artefact>" }
               }
             ]
           }
