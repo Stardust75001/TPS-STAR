@@ -1,103 +1,18 @@
-name: "🔎 SEO Checks (Ahrefs v3)"
-
-on:
-  schedule:
-    - cron: "12 3 * * *"   # 03:12 UTC quotidien
-  workflow_dispatch: {}
-
-env:
-  TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}     # ex: https://thepetsociety.paris
-  AHREFS_API_KEY: ${{ secrets.AHREFS_API_KEY }}  # Ahrefs v3 Bearer token (Enterprise)
-  # Slack est optionnel ; s'il n'existe pas, l'étape Slack est skip
-  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-jobs:
-  seo:
+  ahrefs:
+    needs: audit
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch Ahrefs v3 metrics
-        id: ahrefs
-        shell: bash
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Run Ahrefs (proxy CF)
+        env:
+          TPS_DOMAIN: ${{ secrets.TPS_DOMAIN }}
         run: |
-          set -euo pipefail
-          mkdir -p out
-
-          if [[ -z "${AHREFS_API_KEY:-}" ]]; then
-            echo "❌ AHREFS_API_KEY manquant (secret requis pour l'API v3)"
-            exit 1
-          fi
-          if [[ -z "${TPS_DOMAIN:-}" ]]; then
-            echo "❌ TPS_DOMAIN manquant (ex: https://thepetsociety.paris)"
-            exit 1
-          fi
-
-          # Normalise le domaine pour Ahrefs (sans schéma / chemin)
-          TARGET="${TPS_DOMAIN#http://}"; TARGET="${TARGET#https://}"; TARGET="${TARGET%%/*}"
-          echo "🎯 Target: $TARGET"
-
-          # Appel v3 (metrics de base)
-          HTTP_CODE=$(curl -sS -w "%{http_code}" -o out/ahrefs_metrics.json \
-            -H "Authorization: Bearer ${AHREFS_API_KEY}" \
-            "https://api.ahrefs.com/v3/site-explorer/metrics?target=${TARGET}&mode=domain")
-
-          echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
-
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            echo "⚠️ Ahrefs renvoie $HTTP_CODE"
-            echo "::warning::Ahrefs v3 HTTP $HTTP_CODE (plan Enterprise requis ou token invalide)."
-          fi
-
-          # Crée un CSV minimal si possible
-          # On tente d’extraire des clés communes ; on tombe à 'n/a' si absentes
-          DR=$(jq -r '..|objects|to_entries[]?|select(.key=="domain_rating")|.value' out/ahrefs_metrics.json | head -n1 || true)
-          BL=$(jq -r '..|objects|to_entries[]?|select(.key=="backlinks")|.value'      out/ahrefs_metrics.json | head -n1 || true)
-          RD=$(jq -r '..|objects|to_entries[]?|select(.key=="ref_domains")|.value'    out/ahrefs_metrics.json | head -n1 || true)
-
-          DR=${DR:-n/a}; BL=${BL:-n/a}; RD=${RD:-n/a}
-          echo "domain,rating,backlinks,ref_domains"    > out/ahrefs_metrics.csv
-          echo "${TARGET},${DR},${BL},${RD}"           >> out/ahrefs_metrics.csv
-
-          # Expose pour Slack
-          echo "target=${TARGET}"    >> "$GITHUB_OUTPUT"
-          echo "dr=${DR}"            >> "$GITHUB_OUTPUT"
-          echo "bl=${BL}"            >> "$GITHUB_OUTPUT"
-          echo "rd=${RD}"            >> "$GITHUB_OUTPUT"
-
-      - name: Upload artefacts (JSON/CSV)
-        if: always()
-        uses: actions/upload-artifact@v4
+          DOMAIN="${TPS_DOMAIN#https://}"; DOMAIN="${DOMAIN#http://}"
+          curl -s "https://<ton-worker>.workers.dev/ahrefs/metrics?target=${DOMAIN}&mode=domain" > out/ahrefs_metrics.json
+          jq . out/ahrefs_metrics.json || true
+      - uses: actions/upload-artifact@v4
         with:
           name: seo-ahrefs
           path: out/
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Notify Slack
-        if: ${{ always() && env.SLACK_WEBHOOK_URL != '' }}
-        env:
-          URL_RUN: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TARGET: ${{ steps.ahrefs.outputs.target }}
-          DR:     ${{ steps.ahrefs.outputs.dr }}
-          BL:     ${{ steps.ahrefs.outputs.bl }}
-          RD:     ${{ steps.ahrefs.outputs.rd }}
-          CODE:   ${{ steps.ahrefs.outputs.http_code }}
-        run: |
-          STATUS="OK"
-          [[ "${CODE:-200}" != "200" ]] && STATUS="WARN ($CODE)"
-
-          cat > slack-temp.json <<JSON
-          {
-            "text": "*SEO Checks (Ahrefs v3)* — ${STATUS}",
-            "blocks": [
-              { "type": "section", "text": { "type": "mrkdwn",
-                "text": "*SEO Checks (Ahrefs v3)* — *${STATUS}*\n• *Target:* ${TARGET}\n• *DR:* ${DR}  • *Backlinks:* ${BL}  • *Ref domains:* ${RD}\n<${URL_RUN}|Voir le run & télécharger l’artefact>" }
-              }
-            ]
-          }
-          JSON
-
-          curl -s -X POST -H 'Content-type: application/json' \
-            --data @slack-temp.json "$SLACK_WEBHOOK_URL" >/dev/null || true
