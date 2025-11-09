@@ -1,5 +1,6 @@
 Weekly Analytics Report (TPS-STAR)
 =================================
+![GA4 Daily Report](https://github.com/Stardust75001/TPS-STAR/actions/workflows/run-ga4-report.yml/badge.svg)
 
 This folder contains a simple report generator and a scheduled workflow that produces a weekly PDF and emails it.
 
@@ -28,3 +29,13 @@ Customize
 Notes
 - Do not commit API keys or passwords to the repo. Use GitHub Secrets.
 - The provided script includes heuristics for analysis and sample critical thresholds; tune these to your business needs.
+Export formats
+- `.json`, `.csv`, and `.pdf` versions of the GA4 report are stored in `/rapports/`
+- Each run creates `ga4-report-YYYYMMDD.*` files
+- Notes
+- Do not commit API keys or passwords to the repo. Use GitHub Secrets.
+- The provided script includes heuristics for analysis and sample critical thresholds; tune these to your business needs.
+
+Export formats
+- `.json`, `.csv`, and `.pdf` versions of the GA4 report are stored in `/rapports/`
+- Each run creates `ga4-report-YYYYMMDD.*` files
