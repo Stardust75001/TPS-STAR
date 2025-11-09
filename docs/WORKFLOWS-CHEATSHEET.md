@@ -1,5 +1,5 @@
 # 🚀 TPS — Workflows & Pipelines (Cheat Sheet)
-_Généré automatiquement le 2025-11-09 05:12:37_
+_Généré automatiquement le 2025-11-09 05:24:49_
 
 ## 🔎 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry)
 
@@ -17,3 +17,19 @@ _Généré automatiquement le 2025-11-09 05:12:37_
 ## basic-check
 
 - Fichier : `basic-check.yml`
+- Dernier run : —
+
+### Jobs
+  - **ok**
+    - Checkout
+    - Sanity
+
+---
+
+## basic
+
+- Fichier : `basic.yml`
+- Dernier run : success/success @ success
+
+### Jobs
+  - **basic**
