@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+steps=()
 
 OUT="$HOME/Shopify/TPS-STAR-WORKTREE/docs/WORKFLOWS-CHEATSHEET.md"
 TS="$(date '+%Y-%m-%d %H:%M:%S')"
