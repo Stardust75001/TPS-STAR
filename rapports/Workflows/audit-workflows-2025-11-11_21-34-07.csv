@@ -1,0 +1,51 @@
+Workflow Name,Status,Conclusion
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧩 Full Metrics Chain (Verify → Resume → PDF),completed,failure
+Theme CI (structure + sanity + JSON),completed,failure
+test-secrets,completed,failure
+🧩 Sentry Release & Deploy,completed,success
+send-report,completed,success
+Send test email,completed,success
+Security check,completed,success
+📊 Run GA4 Daily Report,completed,failure
+🧾 Resume Metrics + Trigger PDF Build,completed,failure
+📊 Verify All Metrics Integrations,completed,failure
+🧾 Metrics PDF Report,completed,failure
+🔎 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry),completed,failure
+NodeJS with Gulp,completed,failure
+sample,completed,success
+Node.js CI,completed,failure
+Theme CI,completed,failure
+.github/workflows/seo-checks.yml,completed,failure
+.github/workflows/i18n-check.yml,completed,failure
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧩 Full Metrics Chain (Verify → Resume → PDF),completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+test-secrets,completed,success
+.github/workflows/seo-checks.yml,completed,success
+🧩 Sentry Release & Deploy,completed,success
+send-report,completed,success
+Send test email,completed,success
+📧 Envoi test - Rapport par email,completed,failure
+Security check,completed,success
+📊 Run GA4 Daily Report,completed,success
+🔁 Refresh GA4 Token,completed,success
+🔎 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry),completed,success
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧩 Full Metrics Chain (Verify → Resume → PDF),completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+test-secrets,completed,success
+.github/workflows/seo-checks.yml,completed,success
+🧩 Sentry Release & Deploy,completed,success
+send-report,completed,success
+Send test email,completed,success
+📧 Envoi test - Rapport par email,completed,failure
+Security check,completed,success
+📊 Run GA4 Daily Report,completed,success
+🔁 Refresh GA4 Token,completed,success
+🔎 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry),completed,success
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧩 Full Metrics Chain (Verify → Resume → PDF),completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+test-secrets,completed,success
+.github/workflows/seo-checks.yml,completed,success
