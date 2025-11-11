@@ -12,6 +12,20 @@ permissions:
   actions: write
   workflows: write
 
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
@@ -133,3 +147,5 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\": \"$STATUS\n📎 [View details]($RUN_URL)\"}" \
             "$SLACK_WEBHOOK_URL"
+
+
