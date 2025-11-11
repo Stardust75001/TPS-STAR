@@ -1,3 +1,4 @@
+# --- 🧠 Verify + Resume All Metrics ---
 name: 🧠 Verify + Resume All Metrics
 
 on:
@@ -8,9 +9,21 @@ on:
 jobs:
   run-verify:
     name: 🔍 Verify Metrics Connections
-    uses: ./.github/workflows/metrics.yml
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧩 Trigger Metrics Verification
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "📊 Verify All Metrics Integrations"
+          ref: DEV
 
   run-resume:
     name: 🧾 Resume Metrics Summary
     needs: run-verify
-    uses: ./.github/workflows/resume-metrics.yml
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧠 Trigger Resume Workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "🧾 Resume Metrics + Trigger PDF Build"
+          ref: DEV

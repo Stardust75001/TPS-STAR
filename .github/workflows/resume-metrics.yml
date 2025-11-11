@@ -1,45 +1,20 @@
-name: 🧾 Resume Metrics Summary
+# --- 🧾 Resume Metrics + Trigger PDF Build ---
+name: 🧾 Resume Metrics + Trigger PDF Build
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 8 * * 1" # chaque lundi à 8h
 
 jobs:
-  resume-metrics:
+  resume:
+    name: 🧩 Resume Metrics Results
     runs-on: ubuntu-latest
-    name: 🧠 Resume Metrics
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📊 Generate metrics summary
-        id: summary
+      - name: 🧠 Summary
         run: |
-          echo "<h3>THE PET SOCIETY — Metrics Summary</h3>" > summary.html
-          echo "<ul>" >> summary.html
-          echo "<li>✅ Sentry DSN: <code>${{ secrets.SENTRY_DSN }}</code></li>" >> summary.html
-          echo "<li>✅ Cloudflare Token: OK</li>" >> summary.html
-          echo "<li>✅ Ahrefs API: OK</li>" >> summary.html
-          echo "<li>✅ Slack Webhook: OK</li>" >> summary.html
-          echo "<li>✅ GA4 Refresh Token: OK</li>" >> summary.html
-          echo "<li>✅ Meta Pixel / Shopify Integrations: OK</li>" >> summary.html
-          echo "</ul>" >> summary.html
+          echo "📊 Summary ready — triggering PDF generation..."
 
-      - name: 💬 Send summary to Slack
-        run: |
-          TEXT=$(cat summary.html | sed 's/"/\\"/g' | tr -d '\n')
-          curl -X POST -H 'Content-type: application/json' \
-          --data "{\"text\":\"🧩 *Metrics Summary* \\n ${TEXT}\"}" \
-          "${{ secrets.SLACK_WEBHOOK_URL }}"
-
-      - name: 📧 (Optional) Send by Email
-        if: ${{ secrets.SMTP_USER != '' }}
-        run: |
-          echo "Sending metrics summary via email..."
-          echo "Subject: THE PET SOCIETY — Metrics Summary
-From: ${{ secrets.SMTP_USER }}
-To: ${{ secrets.EMAIL_RECIPIENT }}
-Content-Type: text/html
-
-$(cat summary.html)" | sendmail -t
+      - name: 📤 Trigger PDF Workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "🧾 Metrics PDF Report"
+          ref: DEV

@@ -1,93 +1,76 @@
+# --- 🧾 Metrics PDF Report ---
 name: 🧾 Metrics PDF Report
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 8 * * 1" # chaque lundi à 08:10
+    - cron: "10 8 * * 1" # chaque lundi à 08:10 UTC
 
 jobs:
   metrics-pdf:
+    name: 📊 Generate Weekly Metrics PDF
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build HTML summary
+      - name: 🧠 Build HTML summary
         run: |
           set -e
-          echo "<h2>THE PET SOCIETY — Weekly Metrics</h2>" > summary.html
-          echo "<p>Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")</p>" >> summary.html
-          echo "<ul>" >> summary.html
+          mkdir -p reports
+          echo "<h2>THE PET SOCIETY — Weekly Metrics Summary</h2>" > reports/summary.html
+          echo "<p>Generated: \$(date -u +"%Y-%m-%d %H:%M:%S UTC")</p>" >> reports/summary.html
+          echo "<ul>" >> reports/summary.html
 
-          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
-            echo "<li>✅ Sentry DSN présent</li>" >> summary.html
+          if [ -n "\${{ secrets.SENTRY_DSN }}" ]; then
+            echo "<li>✅ Sentry DSN — Present</li>" >> reports/summary.html
           else
-            echo "<li>❌ Sentry DSN manquant</li>" >> summary.html
+            echo "<li>❌ Sentry DSN — Missing</li>" >> reports/summary.html
           fi
 
-          CF_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          CF_CODE=\$(curl -s -o /dev/null -w "%{http_code}" \
             "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}")
-          if [ "$CF_CODE" = "200" ]; then
-            echo "<li>✅ Cloudflare token OK</li>" >> summary.html
+            -H "Authorization: Bearer \${{ secrets.CLOUDFLARE_TOKEN }}")
+          if [ "\$CF_CODE" = "200" ]; then
+            echo "<li>✅ Cloudflare Token — Valid</li>" >> reports/summary.html
           else
-            echo "<li>❌ Cloudflare token KO ($CF_CODE)</li>" >> summary.html
+            echo "<li>❌ Cloudflare Token — Invalid (\$CF_CODE)</li>" >> reports/summary.html
           fi
 
-          AH_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          AH_CODE=\$(curl -s -o /dev/null -w "%{http_code}" \
             "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
-            -H "Authorization: Bearer ${{ secrets.AHREFS_API_KEY }}")
-          if [ "$AH_CODE" = "200" ]; then
-            echo "<li>✅ Ahrefs API OK</li>" >> summary.html
+            -H "Authorization: Bearer \${{ secrets.AHREFS_API_KEY }}")
+          if [ "\$AH_CODE" = "200" ]; then
+            echo "<li>✅ Ahrefs API — Connected</li>" >> reports/summary.html
           else
-            echo "<li>❌ Ahrefs API KO ($AH_CODE)</li>" >> summary.html
+            echo "<li>❌ Ahrefs API — Failed (\$AH_CODE)</li>" >> reports/summary.html
           fi
 
-          if [ -n "${{ secrets.GA4_REFRESH_TOKEN }}" ]; then
-            echo "<li>✅ GA4 Refresh Token présent</li>" >> summary.html
+          if [ -n "\${{ secrets.GA4_REFRESH_TOKEN }}" ]; then
+            echo "<li>✅ GA4 Refresh Token — Present</li>" >> reports/summary.html
           else
-            echo "<li>❌ GA4 Refresh Token manquant</li>" >> summary.html
+            echo "<li>❌ GA4 Refresh Token — Missing</li>" >> reports/summary.html
           fi
 
-          echo "</ul>" >> summary.html
+          echo "</ul>" >> reports/summary.html
+          echo "<p style='font-style:italic'>End of report — \$(date)</p>" >> reports/summary.html
 
-      - name: Install wkhtmltopdf
+      - name: 🧱 Install wkhtmltopdf
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y wkhtmltopdf
 
-      - name: Generate PDF
+      - name: 🧾 Generate PDF report
         run: |
-          wkhtmltopdf summary.html metrics-report.pdf
-          ls -lh metrics-report.pdf
+          wkhtmltopdf reports/summary.html reports/metrics-report.pdf
+          ls -lh reports/metrics-report.pdf
+          echo "✅ PDF generated successfully"
 
-      - name: Upload artifact (PDF)
+      - name: 💾 Upload artifact (PDF)
         uses: actions/upload-artifact@v4
         with:
-          name: metrics-report
-          path: metrics-report.pdf
+          name: metrics-weekly-report
+          path: reports/metrics-report.pdf
           if-no-files-found: error
           retention-days: 14
-
-      - name: Upload PDF to Slack (if bot token available)
-        if: ${{ secrets.SLACK_BOT_TOKEN != '' && secrets.SLACK_CHANNEL_ID != '' }}
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-        run: |
-          curl -f -s -S -X POST \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -F "channels=$SLACK_CHANNEL_ID" \
-            -F "initial_comment=🧾 THE PET SOCIETY — Weekly Metrics PDF" \
-            -F "file=@metrics-report.pdf" \
-            https://slack.com/api/files.upload
-
-      - name: Fallback via Webhook (no file upload)
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' && (secrets.SLACK_BOT_TOKEN == '' || secrets.SLACK_CHANNEL_ID == '') }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":page_facing_up: Metrics PDF généré — téléchargez-le ici : $RUN_URL\"}" \
-            "$SLACK_WEBHOOK_URL"
