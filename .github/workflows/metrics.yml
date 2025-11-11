@@ -12,6 +12,20 @@ permissions:
   actions: write
   workflows: write
 
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
@@ -65,3 +79,5 @@ jobs:
           ref: DEV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
