@@ -1,3 +1,8 @@
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 # --- 📊 Verify All Metrics Integrations ---
 name: 📊 Verify All Metrics Integrations
 
