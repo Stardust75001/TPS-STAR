@@ -1,5 +1,6 @@
+---
 name: Update Sentry SDK
-on:
+"on":
   workflow_dispatch:
     inputs:
       version:

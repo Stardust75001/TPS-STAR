@@ -1,6 +1,7 @@
+---
 name: Theme CI (structure + sanity + JSON)
 
-on:
+"on":
   push:
     branches: [main]
   pull_request:

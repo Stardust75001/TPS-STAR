@@ -1,5 +1,6 @@
+---
 name: basic
-on:
+"on":
   pull_request:
   push:
     branches: [ ci/sentry-release ]

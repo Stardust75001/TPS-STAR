@@ -1,3 +1,4 @@
+---
   ahrefs:
     needs: audit
     runs-on: ubuntu-latest

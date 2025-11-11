@@ -1,6 +1,7 @@
+---
 name: Send test email
 
-on:
+"on":
   workflow_dispatch: {}
 
 jobs:

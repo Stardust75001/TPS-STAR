@@ -1,5 +1,6 @@
+---
 name: basic-check
-on:
+"on":
   pull_request:
     branches: [ main ]
 jobs:

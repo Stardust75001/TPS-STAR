@@ -1,6 +1,7 @@
+---
 name: 📊 Run GA4 Daily Report
 
-on:
+"on":
   schedule:
     - cron: '0 4 * * *' # Tous les jours à 4h UTC
   workflow_dispatch:

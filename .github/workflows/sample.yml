@@ -1,5 +1,6 @@
+---
 name: sample
-on: [push]
+"on": [push]
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -1,6 +1,7 @@
+---
 name: Security check
 
-on:
+"on":
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
@@ -65,7 +66,7 @@ jobs:
           scan 'AKIA[0-9A-Z]{16}'
           scan 'ASIA[0-9A-Z]{16}'
           scan 'AIza[0-9A-Za-z_-]{35}'
-          scan 'xox[baprs]-[A-Za-z0-9-]{10,48}'
+          scan 'xox[bapr]-[A-Za-z0-9-]{10,48}'
           scan 'sk_live_[A-Za-z0-9]{24,}'
           scan '-----BEGIN( RSA)? PRIVATE KEY-----'
 
@@ -173,7 +174,7 @@ jobs:
           scan 'AKIA[0-9A-Z]{16}'
           scan 'ASIA[0-9A-Z]{16}'
           scan 'AIza[0-9A-Za-z_-]{35}'
-          scan 'xox[baprs]-[A-Za-z0-9-]{10,48}'
+          scan 'xox[bapr]-[A-Za-z0-9-]{10,48}'
           scan 'sk_live_[A-Za-z0-9]{24,}'
           scan '-----BEGIN( RSA)? PRIVATE KEY-----'
 

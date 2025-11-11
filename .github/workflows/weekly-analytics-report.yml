@@ -1,6 +1,7 @@
+---
 name: "📊 Weekly Analytics Report - TPS-STAR Business Intelligence"
 
-on:
+"on":
   schedule:
     - cron: "0 8 * * MON"  # Every Monday at 8:00 AM UTC
   workflow_dispatch:
@@ -65,7 +66,7 @@ jobs:
         if: env.SLACK_WEBHOOK_URL
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text":"📊 Weekly TPS-STAR Analytics Report Generated!\n🔗 View: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n📅 Period: Last 7 days\n📈 Includes: Traffic, Conversions, User Behavior & Recommendations"}' \
+          --data '{"text":"📊 Weekly TPS-STAR Analytics Report Generated!\n🔗 View: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n📅 Period: Last 7 days\n📈 Includes: Traffic, Conversions, User Behavior & Recommendations"}' \  # yamllint disable-line rule:line-length
           ${{ env.SLACK_WEBHOOK_URL }}
 
       - name: 📧 Email Report (Optional)
