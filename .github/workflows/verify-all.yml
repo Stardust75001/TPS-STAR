@@ -1,10 +1,10 @@
-# --- 🧠 Verify + Resume All Metrics ---
-name: 🧠 Verify + Resume All Metrics
+---
+name: 🧩 Full Metrics Chain (Verify → Resume → PDF)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 8 * * 1" # chaque lundi à 8h du matin
+    - cron: "0 8 * * 1" # chaque lundi à 08:00 UTC
 
 jobs:
   run-verify:
@@ -27,3 +27,30 @@ jobs:
         with:
           workflow: "🧾 Resume Metrics + Trigger PDF Build"
           ref: DEV
+
+  run-pdf:
+    name: 🧾 Generate Metrics PDF Report
+    needs: run-resume
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📤 Trigger PDF Generation
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "🧾 Metrics PDF Report"
+          ref: DEV
+
+  notify-slack:
+    name: 💬 Notify Slack (Summary)
+    needs: run-pdf
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 💬 Send final Slack summary
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "📡 Sending summary to Slack..."
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":white_check_mark: *Weekly metrics chain complete!*\n📎 [Run details]($RUN_URL)\"}" \
+            "$SLACK_WEBHOOK_URL" || true
