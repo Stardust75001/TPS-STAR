@@ -1,0 +1,80 @@
+name: 🧾 Metrics PDF Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "10 8 * * 1" # chaque lundi à 08:10
+
+jobs:
+  metrics-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build HTML summary
+        id: build_html
+        run: |
+          set -e
+          echo "<h2>THE PET SOCIETY — Weekly Metrics</h2>" > summary.html
+          echo "<p>Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")</p>" >> summary.html
+          echo "<ul>" >> summary.html
+
+          test -n "${{ secrets.SENTRY_DSN }}" \
+            && echo "<li>✅ Sentry DSN présent</li>" >> summary.html \
+            || echo "<li>❌ Sentry DSN manquant</li>" >> summary.html
+
+          CF_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}")
+          if [ "$CF_CODE" = "200" ]; then echo "<li>✅ Cloudflare token OK</li>" >> summary.html; else echo "<li>❌ Cloudflare token KO ($CF_CODE)</li>" >> summary.html; fi
+
+          AH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
+            -H "Authorization: Bearer ${{ secrets.AHREFS_API_KEY }}")
+          if [ "$AH_CODE" = "200" ]; then echo "<li>✅ Ahrefs API OK</li>" >> summary.html; else echo "<li>❌ Ahrefs API KO ($AH_CODE)</li>" >> summary.html; fi
+
+          test -n "${{ secrets.GA4_REFRESH_TOKEN }}" \
+            && echo "<li>✅ GA4 Refresh Token présent</li>" >> summary.html \
+            || echo "<li>❌ GA4 Refresh Token manquant</li>" >> summary.html
+
+          echo "</ul>" >> summary.html
+
+      - name: Install wkhtmltopdf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+
+      - name: Generate PDF
+        run: |
+          wkhtmltopdf summary.html metrics-report.pdf
+          ls -lh metrics-report.pdf
+
+      - name: Upload artifact (PDF)
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-report
+          path: metrics-report.pdf
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload PDF to Slack (if bot token available)
+        if: ${{ secrets.SLACK_BOT_TOKEN != '' && secrets.SLACK_CHANNEL_ID != '' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          curl -f -s -S -X POST \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -F "channels=$SLACK_CHANNEL_ID" \
+            -F "initial_comment=🧾 THE PET SOCIETY — Weekly Metrics PDF" \
+            -F "file=@metrics-report.pdf" \
+            https://slack.com/api/files.upload
+
+      - name: Fallback via Webhook (no file upload)
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' && (secrets.SLACK_BOT_TOKEN == '' || secrets.SLACK_CHANNEL_ID == '') }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\":page_facing_up: Metrics PDF généré — téléchargez-le ici : $RUN_URL\"}" \
+          "$SLACK_WEBHOOK_URL"
