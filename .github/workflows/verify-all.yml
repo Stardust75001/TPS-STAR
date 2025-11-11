@@ -1,68 +1,69 @@
-on:
-  workflow_dispatch:
-permissions:
-  contents: read
-  actions: write
-  workflows: write
-
-permissions:
-  contents: read
-  actions: write
-  workflows: write
-
----
 name: 🧩 Full Metrics Chain (Verify → Resume → PDF)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 8 * * 1" # chaque lundi à 08:00 UTC
+
+permissions:
+  contents: read
+  actions: write
+  workflows: write
 
 jobs:
-  run-verify:
+  verify:
     name: 🔍 Verify Metrics Connections
     runs-on: ubuntu-latest
     steps:
-      - name: 🧩 Trigger Metrics Verification
+      - name: 🚀 Trigger Metrics Verification
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: "📊 Verify All Metrics Integrations"
+          workflow: "metrics.yml"  # correspond exactement au nom du fichier cible
           ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  run-resume:
+  resume:
     name: 🧾 Resume Metrics Summary
-    needs: run-verify
+    needs: verify
     runs-on: ubuntu-latest
     steps:
-      - name: 🧠 Trigger Resume Workflow
+      - name: 🚀 Trigger Resume Metrics Workflow
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: "🧾 Resume Metrics + Trigger PDF Build"
+          workflow: "resume-metrics.yml"
           ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  run-pdf:
-    name: 🧾 Generate Metrics PDF Report
-    needs: run-resume
+  pdf:
+    name: 📊 Generate Metrics PDF Report
+    needs: resume
     runs-on: ubuntu-latest
     steps:
-      - name: 📤 Trigger PDF Generation
+      - name: 🚀 Trigger PDF Workflow
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: "🧾 Metrics PDF Report"
+          workflow: "metrics-pdf.yml"
           ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  notify-slack:
-    name: 💬 Notify Slack (Summary)
-    needs: run-pdf
+  slack:
+    name: 💬 Notify Slack Summary
+    needs: pdf
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: 💬 Send final Slack summary
+      - name: 📢 Send Slack Notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          echo "📡 Sending summary to Slack..."
+          STATUS=":white_check_mark: *Metrics chain completed successfully!*"
+          if [ "${{ needs.verify.result }}" = "failure" ] || \
+             [ "${{ needs.resume.result }}" = "failure" ] || \
+             [ "${{ needs.pdf.result }}" = "failure" ]; then
+             STATUS=":x: *Some steps failed in the metrics chain!*"
+          fi
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":white_check_mark: *Weekly metrics chain complete!*\n📎 [Run details]($RUN_URL)\"}" \
-            "$SLACK_WEBHOOK_URL" || true
+            --data "{\"text\": \"$STATUS\n📎 [View details]($RUN_URL)\"}" \
+            "$SLACK_WEBHOOK_URL"
