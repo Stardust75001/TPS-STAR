@@ -1,0 +1,16 @@
+name: 🧠 Verify + Resume All Metrics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1" # chaque lundi à 8h du matin
+
+jobs:
+  run-verify:
+    name: 🔍 Verify Metrics Connections
+    uses: ./.github/workflows/metrics.yml
+
+  run-resume:
+    name: 🧾 Resume Metrics Summary
+    needs: run-verify
+    uses: ./.github/workflows/resume-metrics.yml
