@@ -1,7 +1,6 @@
----
 name: i18n validation
 
-"on":
+on:
   workflow_dispatch:
   pull_request:
     branches: [ main ]
@@ -32,8 +31,8 @@ jobs:
           const files=fs.readdirSync("locales").filter(f=>f.endsWith(".json") && !f.endsWith(".schema.json") && f!=="untranslated_keys.csv");
           let bad=0;
           for(const f of files){
-            try{ j.parse(fs.readFileSync(`locales/${f}`,"utf8")); console.log("OK ",f); }
-            catch(e){ console.log("BAD",f,"@",e.lineNumber,e.columnNumber,"-",e.message); bad++; }
+            try{ j.parse(fs.readFileSync(`locales/${f}`,"utf8")); console.log("✅ OK ",f); }
+            catch(e){ console.log("❌ BAD",f,"@",e.lineNumber,e.columnNumber,"-",e.message); bad++; }
           }
           if(bad>0){ process.exit(1); }'
 
@@ -64,4 +63,4 @@ jobs:
       - name: Notify on failure
         if: failure()
         run: |
-          echo "Workflow failed! Please check the logs and fix errors."
+          echo "❌ Workflow failed! Please check the logs and fix errors."
