@@ -1,3 +1,10 @@
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
@@ -23,3 +30,17 @@ jobs:
         with:
           workflow: "🧾 Metrics PDF Report"
           ref: DEV
+
+
+jobs:
+  trigger_next:
+    name: 🔁 Trigger Metrics PDF Workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Launch metrics-pdf.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "metrics-pdf.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

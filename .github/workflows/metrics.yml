@@ -1,3 +1,10 @@
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
@@ -23,3 +30,17 @@ jobs:
           echo "CLOUDFLARE_TOKEN: \${{ secrets.CLOUDFLARE_TOKEN }}"
           echo "AHREFS_API_KEY: \${{ secrets.AHREFS_API_KEY }}"
           echo "GA4_TOKEN: \${{ secrets.GA4_TOKEN }}"
+
+
+jobs:
+  trigger_next:
+    name: 🔁 Trigger Resume Metrics Workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Launch resume-metrics.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "resume-metrics.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
