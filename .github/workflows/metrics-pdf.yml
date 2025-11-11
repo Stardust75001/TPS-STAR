@@ -5,6 +5,13 @@ permissions:
   actions: write
   workflows: write
 
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
@@ -86,6 +93,26 @@ jobs:
           path: reports/metrics-report.pdf
           if-no-files-found: error
           retention-days: 14
+
+
+jobs:
+  slack:
+    name: 💬 Notify Slack Summary
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 📢 Send Slack Notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATUS=":white_check_mark: *Metrics chain completed successfully!*"
+          if [ "${{ job.status }}" != "success" ]; then
+            STATUS=":x: *Metrics chain encountered errors!*"
+          fi
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"$STATUS\n📎 [View details]($RUN_URL)\"}" \
+            "$SLACK_WEBHOOK_URL"
 
 
 jobs:
