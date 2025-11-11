@@ -1,3 +1,10 @@
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  workflows: write
+
 permissions:
   contents: read
   actions: write
