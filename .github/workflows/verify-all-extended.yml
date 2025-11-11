@@ -1,0 +1,95 @@
+name: 🧠 Verify + Resume + PDF + Slack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [DEV]
+  schedule:
+    - cron: "0 8 * * 1" # chaque lundi à 8h UTC
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  chain:
+    name: ⚙️ TPS Metrics Chain
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Trigger metrics.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "metrics.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🧾 Trigger resume-metrics.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "resume-metrics.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Trigger metrics-pdf.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "metrics-pdf.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: 💬 Slack + Email Summary
+    needs: chain
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📢 Send summary to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "📡 Sending TPS summary to Slack..."
+          COLOR="#2eb886"
+          STATUS="✅ Success"
+          if [ "${{ needs.chain.result }}" != "success" ]; then
+            COLOR="#ff0000"
+            STATUS="❌ Failure"
+          fi
+
+          TEXT="*🧠 TPS Metrics Chain Summary*\n• Status: $STATUS\n• Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n<${RUN_URL}|🔗 View Workflow Details>"
+
+          PAYLOAD=$(jq -n \
+            --arg color "$COLOR" \
+            --arg text "$TEXT" \
+            '{attachments:[{color:$color,blocks:[{type:"section",text:{type:"mrkdwn",text:$text}}]}]}')
+
+          curl -X POST -H "Content-Type: application/json" \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" || echo "⚠️ Slack webhook failed, fallback to email."
+
+      - name: 📧 Fallback Email Summary
+        if: failure()
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+        run: |
+          if ! command -v sendmail >/dev/null 2>&1; then
+            echo "⚠️ sendmail not available, skipping email fallback."
+            exit 0
+          fi
+
+          {
+            echo "Subject: ⚠️ TPS Metrics Chain Failed"
+            echo "From: ${SMTP_USER}"
+            echo "To: ${EMAIL_RECIPIENT}"
+            echo "MIME-Version: 1.0"
+            echo "Content-Type: text/plain; charset=UTF-8"
+            echo
+            echo "The TPS Metrics chain workflow failed."
+            echo "Run details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "Date (UTC): $(date -u +'%Y-%m-%d %H:%M:%S')"
+          } | sendmail -t
+          echo "✅ Email sent to ${EMAIL_RECIPIENT}"
