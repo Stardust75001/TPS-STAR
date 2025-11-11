@@ -1,0 +1,49 @@
+name: 🔍 Verify Metrics Connections
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify-metrics:
+    runs-on: ubuntu-latest
+    name: 🔧 Test all Metrics APIs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔎 Test Sentry DSN
+        run: |
+          echo "Testing Sentry..."
+          curl -s -o /dev/null -w "%{http_code}" "${{ secrets.SENTRY_DSN }}" || echo "❌ Sentry DSN failed"
+
+      - name: 🔎 Test Cloudflare Token
+        run: |
+          echo "Testing Cloudflare..."
+          curl -s -o /dev/null -w "%{http_code}" "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" || echo "❌ Cloudflare Token failed"
+
+      - name: 🔎 Test Ahrefs API
+        run: |
+          echo "Testing Ahrefs..."
+          curl -s -o /dev/null -w "%{http_code}" \
+          "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
+          -H "Authorization: Bearer ${{ secrets.AHREFS_API_KEY }}" || echo "❌ Ahrefs failed"
+
+      - name: 🔎 Test Slack Webhook
+        run: |
+          echo "Testing Slack..."
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":":white_check_mark: Slack webhook active"}' \
+          "${{ secrets.SLACK_WEBHOOK_URL }}" || echo "❌ Slack failed"
+
+      - name: 🔎 Test GA4 Refresh Token
+        run: |
+          echo "Testing GA4 token..."
+          if [ -n "${{ secrets.GA4_REFRESH_TOKEN }}" ]; then
+            echo "✅ GA4 Refresh Token exists"
+          else
+            echo "❌ GA4 Refresh Token missing"
+          fi
+
+      - name: ✅ Summary
+        run: echo "All metrics tested. Check results above."
