@@ -13,28 +13,41 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build HTML summary
-        id: build_html
         run: |
           set -e
           echo "<h2>THE PET SOCIETY — Weekly Metrics</h2>" > summary.html
           echo "<p>Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")</p>" >> summary.html
           echo "<ul>" >> summary.html
 
-          test -n "${{ secrets.SENTRY_DSN }}" \
-            && echo "<li>✅ Sentry DSN présent</li>" >> summary.html \
-            || echo "<li>❌ Sentry DSN manquant</li>" >> summary.html
+          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
+            echo "<li>✅ Sentry DSN présent</li>" >> summary.html
+          else
+            echo "<li>❌ Sentry DSN manquant</li>" >> summary.html
+          fi
 
-          CF_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+          CF_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/user/tokens/verify" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}")
-          if [ "$CF_CODE" = "200" ]; then echo "<li>✅ Cloudflare token OK</li>" >> summary.html; else echo "<li>❌ Cloudflare token KO ($CF_CODE)</li>" >> summary.html; fi
+          if [ "$CF_CODE" = "200" ]; then
+            echo "<li>✅ Cloudflare token OK</li>" >> summary.html
+          else
+            echo "<li>❌ Cloudflare token KO ($CF_CODE)</li>" >> summary.html
+          fi
 
-          AH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
+          AH_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
             -H "Authorization: Bearer ${{ secrets.AHREFS_API_KEY }}")
-          if [ "$AH_CODE" = "200" ]; then echo "<li>✅ Ahrefs API OK</li>" >> summary.html; else echo "<li>❌ Ahrefs API KO ($AH_CODE)</li>" >> summary.html; fi
+          if [ "$AH_CODE" = "200" ]; then
+            echo "<li>✅ Ahrefs API OK</li>" >> summary.html
+          else
+            echo "<li>❌ Ahrefs API KO ($AH_CODE)</li>" >> summary.html
+          fi
 
-          test -n "${{ secrets.GA4_REFRESH_TOKEN }}" \
-            && echo "<li>✅ GA4 Refresh Token présent</li>" >> summary.html \
-            || echo "<li>❌ GA4 Refresh Token manquant</li>" >> summary.html
+          if [ -n "${{ secrets.GA4_REFRESH_TOKEN }}" ]; then
+            echo "<li>✅ GA4 Refresh Token présent</li>" >> summary.html
+          else
+            echo "<li>❌ GA4 Refresh Token manquant</li>" >> summary.html
+          fi
 
           echo "</ul>" >> summary.html
 
@@ -76,5 +89,5 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data "{\"text\":\":page_facing_up: Metrics PDF généré — téléchargez-le ici : $RUN_URL\"}" \
-          "$SLACK_WEBHOOK_URL"
+            --data "{\"text\":\":page_facing_up: Metrics PDF généré — téléchargez-le ici : $RUN_URL\"}" \
+            "$SLACK_WEBHOOK_URL"
