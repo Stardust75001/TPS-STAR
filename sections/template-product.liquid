@@ -224,7 +224,7 @@
 
 {% schema %}
 {
-  "name": "Product Template",
+  "name": "Template Product",
   "settings": [
     {
       "type": "header",
@@ -474,6 +474,18 @@
     {
       "type": "tabs",
       "name": "📑 Tabs"
+    },
+    {
+      "type": "upsell_modal",
+      "name": "Upsell Modal",
+      "settings": [
+        { "type": "text", "id": "modal_title", "label": "Modal Title" },
+        { "type": "text", "id": "metafield", "label": "Metafield" },
+        { "type": "number", "id": "limit", "label": "Limit" },
+        { "type": "text", "id": "modal_footer_btn", "label": "Footer Button" },
+        { "type": "text", "id": "countdown_timer_pretext", "label": "Timer Pretext" },
+        { "type": "text", "id": "countdown_timer", "label": "Timer" }
+      ]
     }
   ]
 }
