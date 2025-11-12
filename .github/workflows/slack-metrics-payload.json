@@ -1,0 +1,86 @@
+{
+  "username": "TPS Metrics Bot 🐾",
+  "icon_emoji": ":chart_with_upwards_trend:",
+  "icon_url": "https://cdn.shopify.com/s/files/1/0861/3180/2460/files/LOGO_ARRONDI_NT12052025_-_1200x628.jpg-removebg-preview.png?v=1747069835",
+  "channel": "#monitoring",
+  "attachments": [
+    {
+      "color": "#4B9C7F",
+      "blocks": [
+        {
+          "type": "image",
+          "image_url": "https://cdn.shopify.com/s/files/1/0861/3180/2460/files/LOGO_ARRONDI_NT12052025_-_1200x628.jpg-removebg-preview.png?v=1747069835",
+          "alt_text": "The Pet Society Logo"
+        },
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "📊 Rapport METRICS – The Pet Society",
+            "emoji": true
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Date :* `{{DATE}}`\n*Statut global :* {{STATUS}}\n\n🔍 *Résultats des 8 services audités :*"
+          }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "_Exécuté automatiquement via GitHub Actions – Workflow `METRICS.yml`_"
+            }
+          ]
+        },
+        { "type": "divider" },
+        {
+          "type": "section",
+          "fields": [
+            { "type": "mrkdwn", "text": "• *Sentry* : {{SENTRY_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Cloudflare* : {{CLOUDFLARE_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Meta Business* : {{META_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Google Search Console* : {{GSC_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Google Analytics 4* : {{GA4_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Ahrefs* : {{AHREFS_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Google Tag Manager* : {{GTM_STATUS}}" },
+            { "type": "mrkdwn", "text": "• *Zik Analytics* : {{ZIK_STATUS}}" }
+          ]
+        },
+        { "type": "divider" },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "✅ Tous les services sont opérationnels"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "❌ Un ou plusieurs services nécessitent une vérification"
+            }
+          ]
+        },
+        { "type": "divider" },
+        {
+          "type": "context",
+          "elements": [
+            { "type": "mrkdwn", "text": "🐾 *The Pet Society Monitoring Bot*" }
+          ]
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "📱 *TPS Metrics Alert (Compact)* – {{STATUS}} | {{DATE}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "provider": "smtp",
+  "status": "error",
+  "error": "gaierror(8, 'nodename nor servname provided, or not known')",
+  "recipient": "you@example.com",
+  "message_id": "<176220187135.19514.8489551480459640519@mba-asc-m3-3.home>",
+  "timestamp": "2025-11-03T20:31:11.493728Z"
+}

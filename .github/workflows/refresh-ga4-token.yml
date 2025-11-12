@@ -1,0 +1,54 @@
+name: 🔁 Refresh GA4 Token
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # Tous les jours à 07h00 (heure UTC)
+  workflow_dispatch:     # Lancement manuel possible
+
+jobs:
+  refresh-token:
+    name: ♻️ Refresh GA4 OAuth Token
+    runs-on: ubuntu-latest
+
+    env:
+      CLIENT_ID: ${{ secrets.GA4_CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.GA4_CLIENT_SECRET }}
+      REFRESH_TOKEN: ${{ secrets.GA4_REFRESH_TOKEN }}
+
+    steps:
+      - name: 🛠️ Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 📦 Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: 🔄 Run token refresh script
+        run: |
+          python <<EOF
+          import os
+          import requests
+
+          client_id = os.getenv("CLIENT_ID")
+          client_secret = os.getenv("CLIENT_SECRET")
+          refresh_token = os.getenv("REFRESH_TOKEN")
+
+          print("🔄 Requesting new access token...")
+          res = requests.post("https://oauth2.googleapis.com/token", data={
+              "client_id": client_id,
+              "client_secret": client_secret,
+              "refresh_token": refresh_token,
+              "grant_type": "refresh_token"
+          })
+
+          if res.ok:
+              print("✅ New token:")
+              print(res.json())
+          else:
+              print("❌ Failed to refresh token:")
+              print(res.text)
+          EOF

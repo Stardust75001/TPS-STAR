@@ -1,0 +1,7 @@
+{
+  "require": [
+    "chai/register-assert"
+  ],
+  "timeout": 5000,
+  "ui": "bdd"
+}

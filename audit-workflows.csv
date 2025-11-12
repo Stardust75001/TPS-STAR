@@ -1,0 +1,51 @@
+Workflow,Status,Conclusion
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧠 Verify + Resume + PDF + Slack,completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+🔧 Test Secrets Validation,completed,success
+🔎 SEO Checks (Ahrefs v3),completed,success
+🧩 Sentry Release & Deploy,completed,success
+send-report,completed,success
+Send test email,completed,success
+📧 Envoi test - Rapport par email,completed,failure
+Security check,completed,success
+📊 Run GA4 Daily Report,completed,success
+🔁 Refresh GA4 Token,completed,success
+🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry),completed,success
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧠 Verify + Resume + PDF + Slack,completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+🔧 Test Secrets Validation,completed,success
+🔎 SEO Checks (Ahrefs v3),completed,success
+🧩 Sentry Release & Deploy,completed,success
+send-report,completed,success
+Send test email,completed,success
+📧 Envoi test - Rapport par email,completed,failure
+Security check,completed,success
+📊 Run GA4 Daily Report,completed,success
+🔁 Refresh GA4 Token,completed,success
+🧩 Audit Trackers (GA4 / Meta / Ahrefs / Cloudflare / Sentry),completed,success
+📊 Weekly Analytics Report - TPS-STAR Business Intelligence,completed,failure
+🧠 Verify + Resume + PDF + Slack,completed,success
+Security check,completed,success
+sample,completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+Theme CI,completed,failure
+.github/workflows/metrics.yml,completed,failure
+🧠 Verify + Resume + PDF + Slack,completed,success
+.github/workflows/metrics-pdf.yml,completed,failure
+.github/workflows/resume-metrics.yml,completed,failure
+🧠 Verify + Resume + PDF + Slack,completed,failure
+Theme CI,completed,failure
+sample,completed,success
+Security check,completed,success
+Theme CI (structure + sanity + JSON),completed,failure
+.github/workflows/metrics.yml,completed,failure
+.github/workflows/resume-metrics.yml,completed,failure
+.github/workflows/metrics-pdf.yml,completed,failure
+NodeJS with Gulp,completed,failure
+Theme CI,completed,failure
+Node.js CI,completed,failure
+sample,completed,success
+🔎 SEO Checks (Ahrefs v3),completed,failure
+i18n validation,completed,failure

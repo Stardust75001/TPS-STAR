@@ -1,0 +1,160 @@
+{
+  "ga4": {
+    "sessions": 2324,
+    "users": 1357,
+    "pageviews": 6186,
+    "bounce_rate": 0.369,
+    "avg_session_duration": 123.79,
+    "conversion_rate": 0.0518,
+    "revenue": 10255.56,
+    "transactions": 34,
+    "new_users_percentage": 0.603,
+    "mobile_percentage": 0.603,
+    "top_pages": [
+      {
+        "page": "/",
+        "views": 1130
+      },
+      {
+        "page": "/collections/all",
+        "views": 681
+      },
+      {
+        "page": "/products/premium-collar",
+        "views": 262
+      },
+      {
+        "page": "/pages/about",
+        "views": 208
+      },
+      {
+        "page": "/cart",
+        "views": 322
+      }
+    ],
+    "traffic_sources": {
+      "organic": 0.504,
+      "direct": 0.237,
+      "social": 0.247,
+      "paid": 0.117,
+      "email": 0.053,
+      "referral": 0.034
+    },
+    "daily_sessions": [
+      375,
+      375,
+      337,
+      182,
+      173,
+      235,
+      354
+    ]
+  },
+  "amplitude": {
+    "events_tracked": 19035,
+    "unique_users": 1033,
+    "user_retention": {
+      "day_1": 0.498,
+      "day_7": 0.192,
+      "day_30": 0.125
+    },
+    "top_events": [
+      {
+        "event": "Product View",
+        "count": 3460
+      },
+      {
+        "event": "Add to Cart",
+        "count": 650
+      },
+      {
+        "event": "Page Ready",
+        "count": 3012
+      },
+      {
+        "event": "Add to Wishlist",
+        "count": 227
+      },
+      {
+        "event": "Remove from Cart",
+        "count": 195
+      }
+    ],
+    "conversion_funnel": {
+      "product_views": 2847,
+      "add_to_cart": 456,
+      "begin_checkout": 198,
+      "purchase": 67
+    },
+    "user_segments": {
+      "new_visitors": 0.685,
+      "returning_customers": 0.23,
+      "power_users": 0.068
+    }
+  },
+  "hotjar": {
+    "sessions_recorded": 331,
+    "heatmaps_generated": 13,
+    "avg_session_length": 351.53,
+    "rage_clicks": 17,
+    "form_abandonment_rate": 0.29,
+    "scroll_depth": {
+      "25%": 0.806,
+      "50%": 0.694,
+      "75%": 0.601,
+      "100%": 0.325
+    },
+    "top_clicked_elements": [
+      {
+        "element": "Add to Cart Button",
+        "clicks": 783
+      },
+      {
+        "element": "Product Images",
+        "clicks": 838
+      },
+      {
+        "element": "Navigation Menu",
+        "clicks": 348
+      },
+      {
+        "element": "Search Bar",
+        "clicks": 254
+      },
+      {
+        "element": "Wishlist Icon",
+        "clicks": 100
+      }
+    ]
+  },
+  "sentry": {
+    "total_errors": 15,
+    "unique_errors": 17,
+    "crash_free_sessions": 0.9635,
+    "performance_score": 88.5,
+    "top_errors": [
+      {
+        "error": "NetworkError: Failed to fetch",
+        "count": 19
+      },
+      {
+        "error": "TypeError: Cannot read property",
+        "count": 11
+      },
+      {
+        "error": "ReferenceError: gtag is not defined",
+        "count": 5
+      },
+      {
+        "error": "ChunkLoadError: Loading chunk failed",
+        "count": 4
+      }
+    ],
+    "browser_performance": {
+      "avg_load_time": 2.41,
+      "lcp": 3.13,
+      "fid": 60.9,
+      "cls": 0.207
+    }
+  }
+}

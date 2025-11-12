@@ -1,0 +1,95 @@
+---
+name: 🧠 Verify + Resume + PDF + Slack
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"  # chaque lundi à 8h UTC
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  run-verify:
+    name: 🔍 Verify Metrics Connections
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Trigger metrics.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "metrics.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  run-resume:
+    name: 🧾 Resume Metrics Summary
+    needs: run-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Trigger resume-metrics.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "resume-metrics.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  run-pdf:
+    name: 📊 Generate Metrics PDF
+    needs: run-resume
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Trigger metrics-pdf.yml
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "metrics-pdf.yml"
+          ref: DEV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-slack:                      # 👈 bien à l'intérieur de `jobs:`
+    name: 💬 Notify Slack Summary
+    needs: run-pdf
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 📢 Send rich Slack summary
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VERIFY_STATUS: ${{ needs.run-verify.result }}
+          RESUME_STATUS: ${{ needs.run-resume.result }}
+          PDF_STATUS: ${{ needs.run-pdf.result }}
+        run: |
+          echo "📡 Sending rich summary to Slack..."
+
+          emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              *) echo "⚙️" ;;
+            esac
+          }
+
+          COLOR="#2eb886"
+          if [ "$VERIFY_STATUS" != "success" ] || [ "$RESUME_STATUS" != "success" ] || [ "$PDF_STATUS" != "success" ]; then
+            COLOR="#ff0000"
+          fi
+
+          V_EMOJI=$(emoji "$VERIFY_STATUS")
+          R_EMOJI=$(emoji "$RESUME_STATUS")
+          P_EMOJI=$(emoji "$PDF_STATUS")
+
+          TEXT="*TPS Metrics Chain Summary*\n\n${V_EMOJI} *Verify step:* ${VERIFY_STATUS}\n${R_EMOJI} *Resume step:* ${RESUME_STATUS}\n${P_EMOJI} *PDF generation:* ${PDF_STATUS}\n\n<${RUN_URL}|🔗 View full workflow run>"
+
+          PAYLOAD=$(jq -n \
+            --arg color "$COLOR" \
+            --arg text "$TEXT" \
+            '{attachments: [{color: $color, blocks: [{type: "section", text: {type: "mrkdwn", text: $text}}]}]}')
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL" || true

@@ -1,0 +1,121 @@
+name: 🧾 Résumé METRICS (logs + Job Summary)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  summary:
+    name: Résumé des Secrets Metrics
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
+
+      - name: 🧾 Résumé METRICS (logs + Job Summary)
+        id: metrics_summary
+        env:
+          GSC_CLIENT_ID:           ${{ secrets.GSC_CLIENT_ID }}
+          GSC_CLIENT_SECRET:       ${{ secrets.GSC_CLIENT_SECRET }}
+          GSC_CREDENTIALS_JSON:    ${{ secrets.GSC_CREDENTIALS_JSON }}
+          GSC_REFRESH_TOKEN:       ${{ secrets.GSC_REFRESH_TOKEN }}
+          GSC_PROPERTY_URL:        ${{ secrets.GSC_PROPERTY_URL }}
+          GA4_CLIENT_ID:           ${{ secrets.GA4_CLIENT_ID }}
+          GA4_CLIENT_SECRET:       ${{ secrets.GA4_CLIENT_SECRET }}
+          GA4_TOKEN:               ${{ secrets.GA4_TOKEN }}
+          GA4_REFRESH_TOKEN:       ${{ secrets.GA4_REFRESH_TOKEN }}
+          GTM_ID:                  ${{ secrets.GTM_ID }}
+          GTM_CLIENT_ID:           ${{ secrets.GTM_CLIENT_ID }}
+          GTM_CLIENT_SECRET:       ${{ secrets.GTM_CLIENT_SECRET }}
+          GTM_REFRESH_TOKEN:       ${{ secrets.GTM_REFRESH_TOKEN }}
+          META_ACCESS_TOKEN:       ${{ secrets.META_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN:    ${{ secrets.CLOUDFLARE_TOKEN }}      # <-- correction ici
+          SENTRY_DSN:              ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN:       ${{ secrets.SENTRY_AUTH_TOKEN }}
+          AHREFS_API_KEY:          ${{ secrets.AHREFS_API_KEY }}
+          ZIK_TOKEN:               ${{ secrets.ZIK_TOKEN }}
+
+        run: |
+          set -euo pipefail
+          mark(){ [ -n "$1" ] && echo "✅" || echo "❌"; }
+
+          KEYS=(
+            "GSC_CLIENT_ID" "GSC_CLIENT_SECRET" "GSC_CREDENTIALS_JSON" "GSC_REFRESH_TOKEN" "GSC_PROPERTY_URL"
+            "GA4_CLIENT_ID" "GA4_CLIENT_SECRET" "GA4_REFRESH_TOKEN" "GA4_TOKEN"
+            "GTM_ID" "GTM_CLIENT_ID" "GTM_CLIENT_SECRET" "GTM_REFRESH_TOKEN"
+            "META_ACCESS_TOKEN" "CLOUDFLARE_API_TOKEN" "SENTRY_DSN" "SENTRY_AUTH_TOKEN" "AHREFS_API_KEY" "ZIK_TOKEN"
+          )
+
+          printf "\n📊 Résumé METRICS (secrets présents ?)\n"
+          HTML="<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;font-family:Arial,sans-serif;min-width:520px'><tr style='background:#f2f2f2'><th>Service / Variable</th><th>Statut</th></tr>"
+          MD="| Service / Variable | Statut |\n|---|:---:|\n"
+          fail=0
+
+          for K in "${KEYS[@]}"; do
+            V="${!K-}"; M=$(mark "$V")
+            if [ -z "$V" ]; then fail=1; fi
+            HTML+="<tr><td>${K}</td><td style='text-align:center'>${M}</td></tr>"
+            MD+="| ${K} | ${M} |\n"
+          done
+          HTML+="</table>"
+
+          echo "## 📊 Résumé METRICS" >> "$GITHUB_STEP_SUMMARY"
+          echo "$MD" >> "$GITHUB_STEP_SUMMARY"
+          echo "text<<EOF" >> $GITHUB_OUTPUT
+          echo "$HTML" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if [ $fail -eq 1 ]; then
+            echo "❌ Des secrets manquent."
+            exit 67
+          fi
+
+      - name: 📩 Sauvegarde résumé HTML pour email
+        if: always()
+        run: |
+          mkdir -p metrics_html
+          echo "${{ steps.metrics_summary.outputs.text }}" > metrics_html/summary.html
+
+      - name: 📦 Upload fichier résumé HTML
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: metrics-summary
+          path: metrics_html/summary.html
+
+      - name: 🧾 Génération payload Slack HTML
+        if: always()
+        run: |
+          echo '{
+            "text": "📊 Résumé des variables de configuration",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*📊 Résumé des METRICS (secrets présentés ci-dessous)*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "```⚠️ Voir les détails HTML dans le Job Summary.```"
+                }
+              }
+            ]
+          }' > slack-message.json
+
+      - name: 💬 Envoi enrichi sur Slack
+        uses: slackapi/slack-github-action@v1.27.0
+        if: always()
+        with:
+          payload-file-path: slack-message.json
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Debug secrets
+        run: |
+          echo "GSC_CLIENT_ID: $GSC_CLIENT_ID"
+          echo "META_ACCESS_TOKEN: $META_ACCESS_TOKEN"
+          echo "SENTRY_DSN: $SENTRY_DSN"

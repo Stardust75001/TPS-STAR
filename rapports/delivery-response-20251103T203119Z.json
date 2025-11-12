@@ -1,0 +1,7 @@
+{
+  "provider": "sendgrid",
+  "status_code": 401,
+  "text_snippet": "{\"errors\":[{\"message\":\"The provided authorization grant is invalid, expired, or revoked\",\"field\":null,\"help\":null}]}",
+  "recipient": "you@example.com",
+  "timestamp": "2025-11-03T20:31:19.464707Z"
+}
