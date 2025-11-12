@@ -25,3 +25,44 @@ ALIASES
 
 echo "✅ Aliases TPS ajoutés à ton .zshrc"
 echo "💡 Recharge maintenant avec : source ~/.zshrc"
+
+# =============================
+# 🧠 TPS-STAR WORKFLOW ALIASES
+# =============================
+
+alias TPSRUNVERIFY="gh workflow run '🧠 Verify + Resume + PDF + Slack' --repo Stardust75001/TPS-STAR --ref DEV"
+alias TPSWATCH="gh run watch --repo Stardust75001/TPS-STAR"
+alias TPSLIST="gh run list --workflow='verify-all-final.yml' --limit 3 --repo Stardust75001/TPS-STAR"
+alias TPSLIGHT='gh variable set SLACK_MODE --body "light" --repo Stardust75001/TPS-STAR && echo "🪶 Slack mode: Light (TPS-STAR)"'
+alias TPSDARK='gh variable set SLACK_MODE --body "dark" --repo Stardust75001/TPS-STAR && echo "🐾 Slack mode: Dark (TPS)"'
+alias TPSCHAIN='TPSDARK && TPSRUNVERIFY && TPSWATCH'
+alias TPSCHEAT='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/build-cheatsheet.sh && open ~/Shopify/TPS-STAR-WORKTREE/CheatSheet/TPS_STAR_Cheatsheet_Aliases.pdf'
+alias TPSCLEAN='rm -f ~/Shopify/TPS-STAR-WORKTREE/rapports/Workflows/*.csv && echo "🧹 Rapports nettoyés." && TPSCHAIN'
+
+cat >> scripts/register-aliases.sh <<'EOF'
+
+# =============================
+# 🧠 TPS-STAR WORKFLOW ALIASES
+# =============================
+
+alias TPSRUNVERIFY="gh workflow run '🧠 Verify + Resume + PDF + Slack' --repo Stardust75001/TPS-STAR --ref DEV"
+alias TPSWATCH="gh run watch --repo Stardust75001/TPS-STAR"
+alias TPSLIST="gh run list --workflow='verify-all-final.yml' --limit 3 --repo Stardust75001/TPS-STAR"
+alias TPSLIGHT='gh variable set SLACK_MODE --body "light" --repo Stardust75001/TPS-STAR && echo \"🪶 Slack mode: Light (TPS-STAR)\"'
+alias TPSDARK='gh variable set SLACK_MODE --body "dark" --repo Stardust75001/TPS-STAR && echo \"�� Slack mode: Dark (TPS)\"'
+alias TPSCHAIN='TPSDARK && TPSRUNVERIFY && TPSWATCH'
+alias TPSCHEAT='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/build-cheatsheet.sh && open ~/Shopify/TPS-STAR-WORKTREE/CheatSheet/TPS_STAR_Cheatsheet_Aliases.pdf'
+alias TPSCLEAN='rm -f ~/Shopify/TPS-STAR-WORKTREE/rapports/Workflows/*.csv && echo \"🧹 Rapports nettoyés.\" && TPSCHAIN'
+
+# =============================
+# 🧠 TPS-STAR WORKFLOW ALIASES
+# =============================
+
+alias TPSRUNVERIFY="gh workflow run '🧠 Verify + Resume + PDF + Slack' --repo Stardust75001/TPS-STAR --ref DEV"
+alias TPSWATCH="gh run watch --repo Stardust75001/TPS-STAR"
+alias TPSLIST="gh run list --workflow='verify-all-final.yml' --limit 3 --repo Stardust75001/TPS-STAR"
+alias TPSLIGHT='gh variable set SLACK_MODE --body "light" --repo Stardust75001/TPS-STAR && echo \"🪶 Slack mode: Light (TPS-STAR)\"'
+alias TPSDARK='gh variable set SLACK_MODE --body "dark" --repo Stardust75001/TPS-STAR && echo \"�� Slack mode: Dark (TPS)\"'
+alias TPSCHAIN='TPSDARK && TPSRUNVERIFY && TPSWATCH'
+alias TPSCHEAT='bash ~/Shopify/TPS-STAR-WORKTREE/scripts/build-cheatsheet.sh && open ~/Shopify/TPS-STAR-WORKTREE/CheatSheet/TPS_STAR_Cheatsheet_Aliases.pdf'
+alias TPSCLEAN='rm -f ~/Shopify/TPS-STAR-WORKTREE/rapports/Workflows/*.csv && echo \"🧹 Rapports nettoyés.\" && TPSCHAIN'
