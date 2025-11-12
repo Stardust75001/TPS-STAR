@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Theme settings",
+    "settings": [
+      {
+        "type": "header",
+        "content": "🧩 TPS-STAR DEV Restored Schema"
+      },
+      {
+        "type": "text",
+        "id": "theme_name",
+        "label": "Theme Name",
+        "default": "TPS-STAR DEV"
+      }
+    ]
+  }
+]
