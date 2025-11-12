@@ -412,21 +412,6 @@
             "border_color": "border-primary",
             "shadow_sp": "shadow-4"
           }
-        },
-        "f706cec8-65d0-451f-a7e2-aab03ef5b5e0": {
-          "type": "bought_together",
-          "settings": {
-            "title": "Fréquemment achetés ensemble",
-            "title_size": "h5",
-            "metafield": "shopiweb.upsell",
-            "limit": 4,
-            "img_orientation": "square",
-            "img_thumbnail": "img-thumbnail",
-            "border_color": "border-primary",
-            "shadow_sp": "shadow-2",
-            "mt": 3,
-            "mb": 3
-          }
         }
       },
       "block_order": [
@@ -460,8 +445,7 @@
         "80c062a7-68a5-496f-863b-0e29edaca020",
         "43c57617-0577-4ae8-90c2-eb4226c836c5",
         "fbdb557a-90da-432b-984d-26c8ef0ef590",
-        "a747e853-cb68-44ec-8f9f-aeaf10c8596e",
-        "f706cec8-65d0-451f-a7e2-aab03ef5b5e0"
+        "a747e853-cb68-44ec-8f9f-aeaf10c8596e"
       ],
       "settings": {
         "product_content_show_bg_gradient": true,
