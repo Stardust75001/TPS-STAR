@@ -403,15 +403,6 @@
             "countdown_timer_pretext": "L'offre expire dans :",
             "countdown_timer": "2024-03-17 11h10am"
           }
-        },
-        "a747e853-cb68-44ec-8f9f-aeaf10c8596e": {
-          "type": "prev_next",
-          "settings": {
-            "img_orientation": "square",
-            "img_thumbnail": "img-thumbnail",
-            "border_color": "border-primary",
-            "shadow_sp": "shadow-4"
-          }
         }
       },
       "block_order": [
@@ -444,8 +435,7 @@
         "6013329c-a6f0-468d-b01b-b2faf3421650",
         "80c062a7-68a5-496f-863b-0e29edaca020",
         "43c57617-0577-4ae8-90c2-eb4226c836c5",
-        "fbdb557a-90da-432b-984d-26c8ef0ef590",
-        "a747e853-cb68-44ec-8f9f-aeaf10c8596e"
+        "fbdb557a-90da-432b-984d-26c8ef0ef590"
       ],
       "settings": {
         "product_content_show_bg_gradient": true,
