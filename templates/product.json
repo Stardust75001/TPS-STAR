@@ -891,7 +891,11 @@
       }
     },
     "shogun-below": { "type": "shogun-below", "settings": {} },
-    "shogun-optimizer": { "type": "shogun-optimizer", "settings": {} }
+    "shogun-optimizer": { "type": "shogun-optimizer", "settings": {} },
+    "main": {
+      "type": "template-product",
+      "settings": {}
+    }
   },
   "order": [
     "shogun-helper",
@@ -905,6 +909,7 @@
     "5f5695e6-4e71-4a2b-9e1d-417a7e6513aa",
     "89221060-6c7f-4552-9374-cdc2ce7cf1ee",
     "shogun-below",
-    "shogun-optimizer"
+    "shogun-optimizer",
+    "main"
   ]
 }
