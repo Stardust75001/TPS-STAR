@@ -2,15 +2,16 @@
 set -euo pipefail
 
 # === CONFIGURATION ===
-WORKDIR="$HOME/Shopify/TPS-STAR-WORKTREE"
+WORKDIR="${GITHUB_WORKSPACE:-$(pwd)}"
+WORKFLOWS_DIR="$WORKDIR/.github/workflows"
 REPORT_DIR="$WORKDIR/rapports/Workflows"
 mkdir -p "$REPORT_DIR"
 
 TIMESTAMP=$(date "+%Y-%m-%d_%H-%M-%S")
 REPORT_FILE="$REPORT_DIR/audit-workflows-$TIMESTAMP.csv"
 
-echo "🔎 Checking all workflows in $WORKDIR/.github/workflows..."
-cd "$WORKDIR/.github/workflows"
+echo "🔎 Checking all workflows in $WORKFLOWS_DIR..."
+cd "$WORKFLOWS_DIR"
 
 # === STEP 1 — Launch all workflows with 'workflow_dispatch' ===
 for wf in *.yml; do
