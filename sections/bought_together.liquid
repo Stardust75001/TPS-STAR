@@ -1,0 +1,77 @@
+{% comment %}
+  THE PET SOCIETY – Bought Together Section
+  TPS-STAR version — fixed schema defaults
+{% endcomment %}
+
+<section id="bought-together" class="bought-together-section">
+  <div class="container">
+    <h2 class="text-center mb-4">{{ section.settings.title }}</h2>
+    {% if section.settings.subtext != blank %}
+      <p class="text-center text-muted mb-4">{{ section.settings.subtext }}</p>
+    {% endif %}
+
+    <div class="grid grid--2-col grid--gap-lg">
+      {% assign coll = collections[section.settings.collection] %}
+      {% if coll and coll.products.size > 0 %}
+        {% for product in coll.products limit: section.settings.limit %}
+          <div class="grid__item text-center">
+            <a href="{{ product.url }}" class="bought-together__link">
+              <div class="bought-together__img-wrapper">
+                <img
+                  src="{{ product.featured_image | img_url: '400x400' }}"
+                  alt="{{ product.title | escape }}"
+                  loading="lazy"
+                  class="bought-together__img"
+                >
+              </div>
+              <p class="mt-2 bought-together__title">{{ product.title }}</p>
+              <p class="bought-together__price">{{ product.price | money }}</p>
+            </a>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-center text-muted">{{ 'No products available in selected collection' }}</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Bought together",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Section title",
+      "default": "Frequently bought together"
+    },
+    {
+      "type": "text",
+      "id": "subtext",
+      "label": "Subtitle (optional)",
+      "default": "Combine these items for the perfect match"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection to display"
+    },
+    {
+      "type": "range",
+      "id": "limit",
+      "label": "Number of products to show",
+      "default": 3,
+      "min": 1,
+      "max": 12,
+      "step": 1
+    }
+  ],
+  "presets": [
+    {
+      "name": "Bought together",
+      "category": "Product"
+    }
+  ]
+}
+{% endschema %}
