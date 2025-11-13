@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+  ],
+  "settings": {
+    "files.associations": {
+      "*.liquid": "html",
+      "*.json": "json",
+      "*.schema": "json",
+      "*.yml": "yaml",
+      "*.yaml": "yaml",
+      "config/settings_schema.json": "json",
+      "config/settings_data.json": "json"
+    },
+    "themeCheck.checkOnSave": true
+  }
+}
