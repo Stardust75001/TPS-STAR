@@ -28,3 +28,12 @@ reports/
 *.pack
 *.idx
 *.bak
+
+CheatSheet/
+*.pdf
+Catalog:products/
+*.bak-*
+*.broken-*
+*.code-workspace
+auto_update.command
+
