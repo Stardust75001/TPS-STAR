@@ -19,7 +19,12 @@ jobs:
       verify_result: ${{ steps.verify_step.outcome }}
       resume_result: ${{ steps.resume_step.outcome }}
       pdf_result: ${{ steps.pdf_step.outcome }}
+
     steps:
+      # Init file to avoid repeated headers
+      - name: Init CSV report file
+        run: echo "Service,Status" > metrics_report.csv
+
       - name: 🚀 Trigger metrics.yml
         id: verify_step
         uses: benc-uk/workflow-dispatch@v1
@@ -48,364 +53,233 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # -------------------------------
-      # ☁️ Cloudflare Token Verification
+      # ☁️ Cloudflare Token
       # -------------------------------
       - name: ☁️ Verify Cloudflare Token
-        id: cf_check
         run: |
-          echo "🔍 Checking Cloudflare token validity..."
           if [ -z "${{ secrets.CLOUDFLARE_TOKEN }}" ]; then
-            echo "❌ CLOUDFLARE_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > cloudflare_report.csv
-            echo "CLOUDFLARE_TOKEN,MISSING" >> cloudflare_report.csv
+            echo "CLOUDFLARE_TOKEN,MISSING" >> metrics_report.csv
             exit 0
           fi
-
-          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" \
-            https://api.cloudflare.com/client/v4/user/tokens/verify)
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" https://api.cloudflare.com/client/v4/user/tokens/verify)
           VALID=$(echo "$RESPONSE" | jq -r '.success')
-
-          echo "Service,Status" > cloudflare_report.csv
           if [ "$VALID" = "true" ]; then
-            echo "CLOUDFLARE_TOKEN,OK" >> cloudflare_report.csv
-            echo "✅ Cloudflare token valid."
+            echo "CLOUDFLARE_TOKEN,OK" >> metrics_report.csv
           else
-            echo "CLOUDFLARE_TOKEN,INVALID" >> cloudflare_report.csv
-            echo "⚠️ Cloudflare token invalid or expired."
+            echo "CLOUDFLARE_TOKEN,INVALID" >> metrics_report.csv
           fi
 
-          cat cloudflare_report.csv >> metrics_report.csv
-
       # -------------------------------
-      # 🔗 Meta Token Verification
+      # 🔗 Meta Token
       # -------------------------------
       - name: 🔗 Verify Meta Token
-        id: meta_check
         run: |
-          echo "🔍 Checking Meta Token validity..."
           if [ -z "${{ secrets.META_TOKEN }}" ]; then
-            echo "❌ META_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > meta_report.csv
-            echo "META_TOKEN,MISSING" >> meta_report.csv
+            echo "META_TOKEN,MISSING" >> metrics_report.csv
             exit 0
           fi
-
-          RESPONSE=$(curl -s -X GET "https://graph.facebook.com/debug_token?input_token=${{ secrets.META_TOKEN }}&access_token=${{ secrets.META_TOKEN }}")
+          RESPONSE=$(curl -s "https://graph.facebook.com/debug_token?input_token=${{ secrets.META_TOKEN }}&access_token=${{ secrets.META_TOKEN }}")
           VALID=$(echo "$RESPONSE" | jq -r '.data.is_valid')
-
-          echo "Service,Status" > meta_report.csv
-          if [ "$VALID" = "true" ]; then
-            echo "META_TOKEN,OK" >> meta_report.csv
-            echo "✅ Meta Token is valid."
-          else
-            echo "META_TOKEN,INVALID" >> meta_report.csv
-            echo "⚠️ Meta Token invalid or expired."
-          fi
-
-          cat meta_report.csv >> metrics_report.csv
+          [ "$VALID" = "true" ] && echo "META_TOKEN,OK" >> metrics_report.csv || echo "META_TOKEN,INVALID" >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Sentry DSN Verification
+      # 🟠 Sentry DSN
       # -------------------------------
       - name: 🟠 Verify Sentry DSN
-        id: sentry_check
         run: |
-          echo "🔍 Checking Sentry DSN..."
           if [ -z "${{ secrets.SENTRY_DSN }}" ]; then
-            echo "❌ SENTRY_DSN missing in GitHub secrets"
-            echo "Service,Status" > sentry_report.csv
-            echo "SENTRY_DSN,MISSING" >> sentry_report.csv
+            echo "SENTRY_DSN,MISSING" >> metrics_report.csv
             exit 0
           fi
           if [[ "${{ secrets.SENTRY_DSN }}" =~ ^https:\/\/[0-9a-f]+@[a-zA-Z0-9.-]+\/[0-9]+$ ]]; then
-            echo "SENTRY_DSN,OK" > sentry_report.csv
-            echo "✅ Sentry DSN format valid."
+            echo "SENTRY_DSN,OK" >> metrics_report.csv
           else
-            echo "SENTRY_DSN,INVALID" > sentry_report.csv
-            echo "⚠️ Sentry DSN format invalid."
+            echo "SENTRY_DSN,INVALID" >> metrics_report.csv
           fi
-          cat sentry_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Google Analytics (GA4 Token) Verification
+      # 🟠 Verify GA4 Token
       # -------------------------------
       - name: 🟠 Verify Google Analytics (GA4 Token)
-        id: ga4_check
         run: |
-          echo "🔍 Checking Google Analytics GA4 Token..."
           if [ -z "${{ secrets.GA4_TOKEN }}" ]; then
-            echo "❌ GA4_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > ga4_report.csv
-            echo "GA4_TOKEN,MISSING" >> ga4_report.csv
+            echo "GA4_TOKEN,MISSING" >> metrics_report.csv
             exit 0
           fi
-          # Try a dummy request to GA4 Measurement Protocol
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://www.google-analytics.com/mp/collect?measurement_id=G-XXXXXXX&api_secret=${{ secrets.GA4_TOKEN }}" -d '{}')
-          echo "Service,Status" > ga4_report.csv
           if [ "$RESPONSE" = "400" ] || [ "$RESPONSE" = "200" ]; then
-            echo "GA4_TOKEN,OK" >> ga4_report.csv
-            echo "✅ GA4 Token present (response HTTP $RESPONSE)."
+            echo "GA4_TOKEN,OK" >> metrics_report.csv
           else
-            echo "GA4_TOKEN,INVALID" >> ga4_report.csv
-            echo "⚠️ GA4 Token invalid or not accepted (HTTP $RESPONSE)."
+            echo "GA4_TOKEN,INVALID" >> metrics_report.csv
           fi
-          cat ga4_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Ahrefs API Verification
+      # 🟠 Ahrefs API
       # -------------------------------
       - name: 🟠 Verify Ahrefs API
-        id: ahrefs_check
         run: |
-          echo "🔍 Checking Ahrefs API key..."
           if [ -z "${{ secrets.AHREFS_API_KEY }}" ]; then
-            echo "❌ AHREFS_API_KEY missing in GitHub secrets"
-            echo "Service,Status" > ahrefs_report.csv
-            echo "AHREFS_API_KEY,MISSING" >> ahrefs_report.csv
+            echo "AHREFS_API_KEY,MISSING" >> metrics_report.csv
             exit 0
           fi
           RESPONSE=$(curl -s "https://apiv2.ahrefs.com?token=${{ secrets.AHREFS_API_KEY }}&from=subscription&mode=domain")
-          STATUS=$(echo "$RESPONSE" | jq -r '.subscription_id // empty')
-          echo "Service,Status" > ahrefs_report.csv
-          if [ -n "$STATUS" ]; then
-            echo "AHREFS_API_KEY,OK" >> ahrefs_report.csv
-            echo "✅ Ahrefs API key valid."
-          else
-            echo "AHREFS_API_KEY,INVALID" >> ahrefs_report.csv
-            echo "⚠️ Ahrefs API key invalid or request failed."
-          fi
-          cat ahrefs_report.csv >> metrics_report.csv
+          SUB=$(echo "$RESPONSE" | jq -r '.subscription_id // empty')
+          [ -n "$SUB" ] && echo "AHREFS_API_KEY,OK" >> metrics_report.csv || echo "AHREFS_API_KEY,INVALID" >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Google Tag Manager Verification
+      # 🟠 GTM ID
       # -------------------------------
       - name: 🟠 Verify Google Tag Manager ID
-        id: gtm_check
         run: |
-          echo "🔍 Checking Google Tag Manager ID..."
           if [ -z "${{ secrets.GTM_ID }}" ]; then
-            echo "❌ GTM_ID missing in GitHub secrets"
-            echo "Service,Status" > gtm_report.csv
-            echo "GTM_ID,MISSING" >> gtm_report.csv
+            echo "GTM_ID,MISSING" >> metrics_report.csv
             exit 0
           fi
           if [[ "${{ secrets.GTM_ID }}" =~ ^GTM-[A-Z0-9]+$ ]]; then
-            echo "GTM_ID,OK" > gtm_report.csv
-            echo "✅ GTM ID format valid."
+            echo "GTM_ID,OK" >> metrics_report.csv
           else
-            echo "GTM_ID,INVALID" > gtm_report.csv
-            echo "⚠️ GTM ID format invalid."
+            echo "GTM_ID,INVALID" >> metrics_report.csv
           fi
-          cat gtm_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Zik Analytics Verification
+      # 🟠 Zik Analytics
       # -------------------------------
       - name: 🟠 Verify Zik Analytics API Key
-        id: zik_check
         run: |
-          echo "🔍 Checking Zik Analytics API Key..."
           if [ -z "${{ secrets.ZIK_API_KEY }}" ]; then
-            echo "❌ ZIK_API_KEY missing in GitHub secrets"
-            echo "Service,Status" > zik_report.csv
-            echo "ZIK_API_KEY,MISSING" >> zik_report.csv
+            echo "ZIK_API_KEY,MISSING" >> metrics_report.csv
             exit 0
           fi
-          # No public endpoint, just check format
           if [[ "${{ secrets.ZIK_API_KEY }}" =~ ^[a-zA-Z0-9]{32,}$ ]]; then
-            echo "ZIK_API_KEY,OK" > zik_report.csv
-            echo "✅ Zik API Key format valid."
+            echo "ZIK_API_KEY,OK" >> metrics_report.csv
           else
-            echo "ZIK_API_KEY,INVALID" > zik_report.csv
-            echo "⚠️ Zik API Key format invalid."
+            echo "ZIK_API_KEY,INVALID" >> metrics_report.csv
           fi
-          cat zik_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Google Search Console Verification
+      # 🟠 GSC Credentials
       # -------------------------------
-      - name: 🟠 Verify Google Search Console (credentials + property)
-        id: gsc_check
+      - name: 🟠 Verify Google Search Console
         run: |
-          echo "🔍 Checking Google Search Console credentials and property..."
           if [ -z "${{ secrets.GSC_CREDENTIALS }}" ]; then
-            echo "❌ GSC_CREDENTIALS missing in GitHub secrets"
-            echo "Service,Status" > gsc_report.csv
-            echo "GSC_CREDENTIALS,MISSING" >> gsc_report.csv
+            echo "GSC_CREDENTIALS,MISSING" >> metrics_report.csv
             exit 0
           fi
           if [ -z "${{ secrets.GSC_PROPERTY }}" ]; then
-            echo "❌ GSC_PROPERTY missing in GitHub secrets"
-            echo "Service,Status" > gsc_report.csv
-            echo "GSC_PROPERTY,MISSING" >> gsc_report.csv
+            echo "GSC_PROPERTY,MISSING" >> metrics_report.csv
             exit 0
           fi
-          echo "${{ secrets.GSC_CREDENTIALS }}" > gsc_creds.json
-          ACCESS_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d @gsc_creds.json "https://oauth2.googleapis.com/token" | jq -r '.access_token // empty')
-          echo "Service,Status" > gsc_report.csv
-          if [ -n "$ACCESS_TOKEN" ]; then
-            RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
-              "https://searchconsole.googleapis.com/webmasters/v3/sites/${{ secrets.GSC_PROPERTY }}")
-            SITE_URL=$(echo "$RESPONSE" | jq -r '.siteUrl // empty')
-            if [ -n "$SITE_URL" ]; then
-              echo "GSC_CREDENTIALS,OK" >> gsc_report.csv
-              echo "GSC_PROPERTY,OK" >> gsc_report.csv
-              echo "✅ GSC credentials and property valid."
-            else
-              echo "GSC_PROPERTY,INVALID" >> gsc_report.csv
-              echo "⚠️ GSC property not found or invalid."
-            fi
-          else
-            echo "GSC_CREDENTIALS,INVALID" >> gsc_report.csv
-            echo "⚠️ GSC credentials invalid."
+          echo "${{ secrets.GSC_CREDENTIALS }}" > gsc.json
+          TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d @gsc.json https://oauth2.googleapis.com/token | jq -r '.access_token // empty')
+          if [ -z "$TOKEN" ]; then
+            echo "GSC_CREDENTIALS,INVALID" >> metrics_report.csv
+            exit 0
           fi
-          cat gsc_report.csv >> metrics_report.csv
+          RESULT=$(curl -s -H "Authorization: Bearer $TOKEN" "https://searchconsole.googleapis.com/webmasters/v3/sites/${{ secrets.GSC_PROPERTY }}")
+          SITE=$(echo "$RESULT" | jq -r '.siteUrl // empty')
+          if [ -n "$SITE" ]; then
+            echo "GSC_CREDENTIALS,OK" >> metrics_report.csv
+            echo "GSC_PROPERTY,OK" >> metrics_report.csv
+          else
+            echo "GSC_PROPERTY,INVALID" >> metrics_report.csv
+          fi
 
       # -------------------------------
-      # 🔸 Slack Webhook + Bot Token + Channel Verification
+      # 🟠 Slack
       # -------------------------------
-      - name: 🟠 Verify Slack Webhook + Bot Token + Channel
-        id: slack_check
+      - name: 🟠 Verify Slack Webhook + Token + Channel
         run: |
-          echo "🔍 Checking Slack Webhook, Bot Token and Channel..."
-          echo "Service,Status" > slack_report.csv
-          STATUS=0
           if [ -z "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            echo "SLACK_WEBHOOK_URL,MISSING" >> slack_report.csv
-            echo "❌ SLACK_WEBHOOK_URL missing in GitHub secrets"
-            STATUS=1
+            echo "SLACK_WEBHOOK_URL,MISSING" >> metrics_report.csv
           else
-            # Try sending a test message
-            RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" \
-              --data '{"text":"Test from GitHub Actions"}' "${{ secrets.SLACK_WEBHOOK_URL }}")
-            if [ "$RESP" = "200" ]; then
-              echo "SLACK_WEBHOOK_URL,OK" >> slack_report.csv
-              echo "✅ Slack webhook works."
-            else
-              echo "SLACK_WEBHOOK_URL,INVALID" >> slack_report.csv
-              echo "⚠️ Slack webhook failed (HTTP $RESP)."
-            fi
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" --data '{"text":"Test"}' "${{ secrets.SLACK_WEBHOOK_URL }}")
+            [ "$CODE" = "200" ] && echo "SLACK_WEBHOOK_URL,OK" >> metrics_report.csv || echo "SLACK_WEBHOOK_URL,INVALID" >> metrics_report.csv
           fi
+
           if [ -z "${{ secrets.SLACK_BOT_TOKEN }}" ]; then
-            echo "SLACK_BOT_TOKEN,MISSING" >> slack_report.csv
-            echo "❌ SLACK_BOT_TOKEN missing in GitHub secrets"
-            STATUS=1
+            echo "SLACK_BOT_TOKEN,MISSING" >> metrics_report.csv
           else
             USER=$(curl -s -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" https://slack.com/api/auth.test | jq -r '.user_id // empty')
-            if [ -n "$USER" ]; then
-              echo "SLACK_BOT_TOKEN,OK" >> slack_report.csv
-              echo "✅ Slack bot token valid."
-            else
-              echo "SLACK_BOT_TOKEN,INVALID" >> slack_report.csv
-              echo "⚠️ Slack bot token invalid."
-            fi
+            [ -n "$USER" ] && echo "SLACK_BOT_TOKEN,OK" >> metrics_report.csv || echo "SLACK_BOT_TOKEN,INVALID" >> metrics_report.csv
           fi
+
           if [ -z "${{ secrets.SLACK_CHANNEL }}" ]; then
-            echo "SLACK_CHANNEL,MISSING" >> slack_report.csv
-            echo "❌ SLACK_CHANNEL missing in GitHub secrets"
-            STATUS=1
+            echo "SLACK_CHANNEL,MISSING" >> metrics_report.csv
           else
-            echo "SLACK_CHANNEL,OK" >> slack_report.csv
-            echo "✅ Slack channel set."
+            echo "SLACK_CHANNEL,OK" >> metrics_report.csv
           fi
-          cat slack_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 SMTP Verification (host, port, user, pass, to)
+      # 🟠 SMTP FIXED VERSION
       # -------------------------------
       - name: 🟠 Verify SMTP (host, port, user, pass, to)
-        id: smtp_check
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_TO:   ${{ secrets.SMTP_TO }}
         run: |
-          echo "🔍 Checking SMTP configuration..."
-          echo "Service,Status" > smtp_report.csv
           STATUS=0
           for VAR in SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_TO; do
-            if [ -z "${{ secrets[$VAR] }}" ]; then
-              echo "$VAR,MISSING" >> smtp_report.csv
-              echo "❌ $VAR missing in GitHub secrets"
+            if [ -z "${!VAR}" ]; then
+              echo "$VAR,MISSING" >> metrics_report.csv
               STATUS=1
             else
-              echo "$VAR,OK" >> smtp_report.csv
+              echo "$VAR,OK" >> metrics_report.csv
             fi
           done
-          # Try to connect to SMTP server (without sending)
           if [ $STATUS -eq 0 ]; then
-            timeout 5 bash -c "</dev/tcp/${{ secrets.SMTP_HOST }}/${{ secrets.SMTP_PORT }}" 2>/dev/null && \
-              echo "✅ SMTP host/port reachable." || echo "⚠️ SMTP host/port not reachable."
+            timeout 5 bash -c "</dev/tcp/${SMTP_HOST}/${SMTP_PORT}" >/dev/null 2>&1 \
+              && echo "SMTP_CONNECT,OK" >> metrics_report.csv \
+              || echo "SMTP_CONNECT,ERROR" >> metrics_report.csv
           fi
-          cat smtp_report.csv >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Shopify API Key Verification
+      # 🟠 Shopify API Key
       # -------------------------------
       - name: 🟠 Verify Shopify API Key
-        id: shopify_check
         run: |
-          echo "🔍 Checking Shopify API Key..."
           if [ -z "${{ secrets.SHOPIFY_API_KEY }}" ]; then
-            echo "❌ SHOPIFY_API_KEY missing in GitHub secrets"
-            echo "Service,Status" > shopify_report.csv
-            echo "SHOPIFY_API_KEY,MISSING" >> shopify_report.csv
+            echo "SHOPIFY_API_KEY,MISSING" >> metrics_report.csv
             exit 0
           fi
-          if [[ "${{ secrets.SHOPIFY_API_KEY }}" =~ ^[a-zA-Z0-9]{32}$ ]]; then
-            echo "SHOPIFY_API_KEY,OK" > shopify_report.csv
-            echo "✅ Shopify API Key format valid."
-          else
-            echo "SHOPIFY_API_KEY,INVALID" > shopify_report.csv
-            echo "⚠️ Shopify API Key format invalid."
-          fi
-          cat shopify_report.csv >> metrics_report.csv
+          [[ "${{ secrets.SHOPIFY_API_KEY }}" =~ ^[a-zA-Z0-9]{32}$ ]] \
+            && echo "SHOPIFY_API_KEY,OK" >> metrics_report.csv \
+            || echo "SHOPIFY_API_KEY,INVALID" >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Amplitude API Key Verification
+      # 🟠 Amplitude
       # -------------------------------
       - name: 🟠 Verify Amplitude API Key
-        id: amplitude_check
         run: |
-          echo "🔍 Checking Amplitude API Key..."
           if [ -z "${{ secrets.AMPLITUDE_API_KEY }}" ]; then
-            echo "❌ AMPLITUDE_API_KEY missing in GitHub secrets"
-            echo "Service,Status" > amplitude_report.csv
-            echo "AMPLITUDE_API_KEY,MISSING" >> amplitude_report.csv
+            echo "AMPLITUDE_API_KEY,MISSING" >> metrics_report.csv
             exit 0
           fi
-          # Try a dummy request to Amplitude Identify endpoint
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://api2.amplitude.com/identify" \
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            https://api2.amplitude.com/identify \
             -H "Content-Type: application/json" \
             -d "{\"api_key\":\"${{ secrets.AMPLITUDE_API_KEY }}\",\"identification\":[{\"user_id\":\"test\"}]}")
-          echo "Service,Status" > amplitude_report.csv
-          if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "400" ]; then
-            echo "AMPLITUDE_API_KEY,OK" >> amplitude_report.csv
-            echo "✅ Amplitude API Key present (HTTP $RESPONSE)."
-          else
-            echo "AMPLITUDE_API_KEY,INVALID" >> amplitude_report.csv
-            echo "⚠️ Amplitude API Key invalid or not accepted (HTTP $RESPONSE)."
-          fi
-          cat amplitude_report.csv >> metrics_report.csv
+
+          ([[ "$CODE" = "200" ]] || [[ "$CODE" = "400" ]]) \
+            && echo "AMPLITUDE_API_KEY,OK" >> metrics_report.csv \
+            || echo "AMPLITUDE_API_KEY,INVALID" >> metrics_report.csv
 
       # -------------------------------
-      # 🔸 Email Recipient Verification
+      # Email Recipient
       # -------------------------------
       - name: 🟠 Verify Email Recipient
-        id: email_recipient_check
         run: |
-          echo "🔍 Checking Email Recipient..."
           if [ -z "${{ secrets.EMAIL_RECIPIENT }}" ]; then
-            echo "❌ EMAIL_RECIPIENT missing in GitHub secrets"
-            echo "Service,Status" > email_recipient_report.csv
-            echo "EMAIL_RECIPIENT,MISSING" >> email_recipient_report.csv
+            echo "EMAIL_RECIPIENT,MISSING" >> metrics_report.csv
             exit 0
           fi
           if [[ "${{ secrets.EMAIL_RECIPIENT }}" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-            echo "EMAIL_RECIPIENT,OK" > email_recipient_report.csv
-            echo "✅ Email recipient format valid."
+            echo "EMAIL_RECIPIENT,OK" >> metrics_report.csv
           else
-            echo "EMAIL_RECIPIENT,INVALID" > email_recipient_report.csv
-            echo "⚠️ Email recipient format invalid."
+            echo "EMAIL_RECIPIENT,INVALID" >> metrics_report.csv
           fi
-          cat email_recipient_report.csv >> metrics_report.csv
 
       - name: 📦 Upload CSV summary
         uses: actions/upload-artifact@v4
@@ -434,8 +308,6 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SLACK_MODE: ${{ vars.SLACK_MODE || 'dark' }}
         run: |
-          echo "📡 Sending Slack summary in mode: $SLACK_MODE"
-
           emoji() {
             case "$1" in
               success) echo "🟢";;
@@ -452,26 +324,19 @@ jobs:
           if [ "$SLACK_MODE" = "light" ]; then
             COLOR="#EAF2FB"
             TITLE="🪶 *TPS-STAR — Light Mode Metrics Summary*"
-            TEXT="*TPS-STAR — Workflow Chain Summary (Light)*\n"
-            TEXT+="\`\`\`\n"
-            TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
-            TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
-            TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
-            TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
-            TEXT+="🔗 ${RUN_URL}\n"
-            TEXT+="\`\`\`\n"
           else
             COLOR="#1E1E1E"
             TITLE="🐾 *THE PET SOCIETY — Dark Metrics Chain Summary*"
-            TEXT="*THE PET SOCIETY — Workflow Chain Summary (Dark)*\n"
-            TEXT+="\`\`\`\n"
-            TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
-            TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
-            TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
-            TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
-            TEXT+="🔗 ${RUN_URL}\n"
-            TEXT+="\`\`\`\n"
           fi
+
+          TEXT="*TPS-STAR — Workflow Chain Summary*\n"
+          TEXT+="\`\`\`\n"
+          TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
+          TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
+          TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
+          TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
+          TEXT+="🔗 ${RUN_URL}\n"
+          TEXT+="\`\`\`\n"
 
           PAYLOAD=$(jq -n \
             --arg color "$COLOR" \
@@ -483,17 +348,15 @@ jobs:
             ]}]}')
 
           curl -s -X POST -H "Content-Type: application/json" \
-            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
-            && echo "✅ Slack summary sent" \
-            || echo "⚠️ Slack webhook failed."
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL"
 
       - name: 📧 Email fallback (if Slack fails)
         if: failure()
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          echo "📨 Sending fallback email..."
           {
             echo "Subject: [TPS] Metrics Chain Summary — Failure"
             echo "From: ${SMTP_USER}"
@@ -510,5 +373,3 @@ jobs:
             echo "Details: ${RUN_URL}"
             echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           } | sendmail -t
-
-          echo "✅ Email fallback executed"
