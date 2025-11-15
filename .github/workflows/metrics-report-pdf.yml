@@ -1,49 +1,52 @@
-name: "📄 TPS Metrics PDF Report"
+name: "📊 TPS Executive Business Report (PDF)"
 
 on:
   workflow_dispatch:
   workflow_run:
     workflows: ["🧠 Verify + Resume + PDF + Slack (Dual Mode)"]
-    types:
-      - completed
+    types: [completed]
 
 jobs:
-  build-pdf:
+  build-report:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Download metrics_report.csv from artifacts
+      - name: Download CSV report
         uses: actions/download-artifact@v4
         with:
           name: metrics-report
-          path: pdf_data
+          path: report_data
 
-      - name: Install Python + ReportLab
+      - name: Install Python + libs
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip install reportlab pandas
+          sudo apt-get install -y python3-dev python3-pip
+          pip install pandas reportlab matplotlib numpy
 
-      - name: Generate TPS PDF report
+      - name: Generate Business Report PDF
         run: |
-          python3 ./scripts/generate_metrics_pdf.py pdf_data/metrics_report.csv metrics_report.pdf
+          python3 scripts/generate_tps_business_report.py \
+            report_data/metrics_report.csv \
+            TPS-Executive-Business-Report.pdf
 
       - name: Upload PDF artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TPS-metrics-report-pdf
-          path: metrics_report.pdf
+          name: TPS-Executive-Business-Report
+          path: TPS-Executive-Business-Report.pdf
+          retention-days: 30
 
-      - name: Send PDF to Slack (optional)
+      - name: Send PDF to Slack
         if: always()
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
         run: |
-          curl -F "file=@metrics_report.pdf" \
-               -F "channels=${{ secrets.SLACK_CHANNEL }}" \
-               -F "initial_comment=📄 *TPS Metrics PDF report ready!*" \
-               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+          curl -F file=@TPS-Executive-Business-Report.pdf \
+               -F "initial_comment=📊 *TPS Executive Business Report (PDF)*" \
+               -F channels=$SLACK_CHANNEL \
+               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
                https://slack.com/api/files.upload
