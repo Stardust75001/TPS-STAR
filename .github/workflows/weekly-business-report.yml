@@ -1,0 +1,140 @@
+name: "📊 Weekly Business Report — THE PET SOCIETY"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"   # Lundi 08:00 UTC
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  weekly_report:
+    name: "🚀 TPS Weekly Business Intelligence"
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------
+      # CHECKOUT
+      # ----------------------------------------------------------
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------
+      # PYTHON ENV
+      # ----------------------------------------------------------
+      - name: "🐍 Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "📦 Install Python dependencies"
+        run: |
+          pip install reportlab matplotlib pandas requests
+
+      # ----------------------------------------------------------
+      # CREATE REPORT_DATA
+      # ----------------------------------------------------------
+      - name: "📁 Init report_data directory"
+        run: mkdir -p report_data
+
+      # ----------------------------------------------------------
+      # SHOPIFY EXPORT
+      # ----------------------------------------------------------
+      - name: "🛍 Export Shopify KPIs"
+        env:
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          SHOPIFY_ADMIN_API_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_ACCESS_TOKEN }}
+        run: |
+          python3 scripts/export_shopify_metrics.py
+
+      # ----------------------------------------------------------
+      # GA4 EXPORT
+      # ----------------------------------------------------------
+      - name: "📈 Export GA4 KPIs"
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_TOKEN: ${{ secrets.GA4_TOKEN }}
+        run: |
+          python3 scripts/export_ga4_metrics.py
+
+      # ----------------------------------------------------------
+      # MERGE CSV
+      # ----------------------------------------------------------
+      - name: "🧩 Merge all metrics into metrics_full_report.csv"
+        run: |
+          {
+            echo "source,metric,value";
+            csv_files=$(ls report_data/*metrics.csv);
+            for file in $csv_files; do
+              prefix=$(basename "$file" | sed 's/_metrics.csv//');
+              tail -n +2 "$file" | while IFS= read -r line; do
+                echo "$prefix,$line";
+              done
+            done
+          } > report_data/metrics_full_report.csv
+
+      # ----------------------------------------------------------
+      # PDF GENERATION
+      # ----------------------------------------------------------
+      - name: "📄 Generate Executive PDF Business Report"
+        run: |
+          python3 scripts/generate_tps_business_report.py \
+            report_data/metrics_full_report.csv \
+            TPS-Executive-Business-Report.pdf
+
+      # ----------------------------------------------------------
+      # UPLOAD ARTIFACT
+      # ----------------------------------------------------------
+      - name: "📤 Upload report as GitHub artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "TPS-Business-Report"
+          path: TPS-Executive-Business-Report.pdf
+          retention-days: 30
+
+      # ----------------------------------------------------------
+      # SLACK NOTIFICATION
+      # ----------------------------------------------------------
+      - name: "💬 Push report to Slack (#reports)"
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATUS="Report generated ✓"
+          TEXT="*📊 Weekly Business Report — THE PET SOCIETY*\n\n"
+          TEXT+="• Shopify KPIs ✓\n"
+          TEXT+="• GA4 KPIs ✓\n"
+          TEXT+="• Executive PDF ✓\n\n"
+          TEXT+="🔗 <${RUN_URL}|Voir le workflow>\n"
+
+          PAYLOAD=$(jq -n \
+            --arg text "$TEXT" \
+            '{text: $text}')
+
+          curl -X POST -H "Content-type: application/json" \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL" \
+            || true
+
+      # ----------------------------------------------------------
+      # EMAIL FALLBACK
+      # ----------------------------------------------------------
+      - name: "📧 Email fallback if Slack fails"
+        if: failure()
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Subject: TPS Business Report — Slack Failure";
+            echo "From: ${SMTP_USER}";
+            echo "To: ${EMAIL_RECIPIENT}";
+            echo "";
+            echo "Slack notification failed.";
+            echo "Report available here:";
+            echo "${RUN_URL}";
+          } | sendmail -t
