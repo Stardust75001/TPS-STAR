@@ -1,80 +1,88 @@
 #!/usr/bin/env python3
 import os
+import sys
 import pandas as pd
-from datetime import datetime, timedelta
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric, Dimension
 
-PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID")
-CLIENT_ID = os.environ.get("GA4_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("GA4_CLIENT_SECRET")
-REFRESH_TOKEN = os.environ.get("GA4_REFRESH_TOKEN")
+def fetch_ga4_kpis():
+    """Fetch simple GA4 KPIs with safe handling when GA4 returns no rows."""
 
-OUT_METRICS = "report_data/ga4_metrics.csv"
-OUT_TS = "report_data/ga4_timeseries.csv"
-OUT_SRC = "report_data/ga4_sources.csv"
+    property_id = os.getenv("GA4_PROPERTY_ID")
+    refresh_token = os.getenv("GA4_REFRESH_TOKEN")
+    client_id = os.getenv("GA4_CLIENT_ID")
+    client_secret = os.getenv("GA4_CLIENT_SECRET")
 
-def get_service():
+    if not (property_id and refresh_token and client_id and client_secret):
+        print("❌ Missing GA4 environment variables.")
+        sys.exit(1)
+
+    # OAuth credentials
+    from google.oauth2.credentials import Credentials
     creds = Credentials(
         None,
-        refresh_token=REFRESH_TOKEN,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
+        refresh_token=refresh_token,
+        client_id=client_id,
+        client_secret=client_secret,
         token_uri="https://oauth2.googleapis.com/token",
-        scopes=["https://www.googleapis.com/auth/analytics.readonly"]
     )
-    return build("analyticsdata", "v1beta", credentials=creds)
 
-def run_report(service, start, end, dims, metrics):
-    return service.properties().runReport(
-        property=f"properties/{PROPERTY_ID}",
-        body={
-            "dateRanges": [{"startDate": start, "endDate": end}],
-            "dimensions": [{"name": d} for d in dims],
-            "metrics": [{"name": m} for m in metrics],
-        }
-    ).execute()
+    client = BetaAnalyticsDataClient(credentials=creds)
+
+    request = RunReportRequest(
+        property=f"properties/{property_id}",
+        metrics=[
+            Metric(name="activeUsers"),
+            Metric(name="newUsers"),
+            Metric(name="sessions"),
+        ],
+        dimensions=[Dimension(name="date")],
+        date_ranges=[DateRange(start_date="7daysAgo", end_date="today")],
+    )
+
+    print("📡 GA4 → sending request…")
+    response = client.run_report(request)
+
+    # DEBUG PRINT
+    print("📡 GA4 RESPONSE RAW ROW COUNT =", len(response.rows))
+
+    if len(response.rows) == 0:
+        print("⚠️ GA4 returned **no rows**. Creating empty dataframe.")
+        return pd.DataFrame([{
+            "activeUsers": 0,
+            "newUsers": 0,
+            "sessions": 0
+        }])
+
+    # Normal extraction
+    first = response.rows[0].metric_values
+    return pd.DataFrame([{
+        "activeUsers": int(first[0].value),
+        "newUsers": int(first[1].value),
+        "sessions": int(first[2].value)
+    }])
+
 
 def main():
-    service = get_service()
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("Usage: export_ga4_metrics.py --outdir DIR")
+        sys.exit(0)
 
-    # --- 7j KPIs
-    r = run_report(service, "7daysAgo", "today",
-                   dims=[],
-                   metrics=["sessions", "conversions", "purchaseRevenue"])
-    totals = r["rows"][0]["metricValues"]
-    metrics_df = pd.DataFrame({
-        "metric": ["Sessions (7d)", "Conversions (7d)", "Revenue (7d)"],
-        "value": [float(totals[0]["value"]), float(totals[1]["value"]), float(totals[2]["value"])],
-        "source": "ga4",
-    })
-    metrics_df.to_csv(OUT_METRICS, index=False)
+    try:
+        outdir_index = sys.argv.index("--outdir") + 1
+    except ValueError:
+        print("❌ Missing --outdir argument.")
+        sys.exit(1)
 
-    # --- 30j timeseries
-    r = run_report(service, "30daysAgo", "today",
-                   dims=["date"],
-                   metrics=["purchaseRevenue"])
-    rows = []
-    for row in r.get("rows", []):
-        rows.append({"date": row["dimensionValues"][0]["value"],
-                     "revenue": float(row["metricValues"][0]["value"])})
-    pd.DataFrame(rows).to_csv(OUT_TS, index=False)
+    outdir = sys.argv[outdir_index]
+    os.makedirs(outdir, exist_ok=True)
 
-    # --- Channels
-    r = run_report(service, "7daysAgo", "today",
-                   dims=["sessionDefaultChannelGroup"],
-                   metrics=["sessions", "conversions", "purchaseRevenue"])
-    out = []
-    for row in r.get("rows", []):
-        out.append({
-            "channel": row["dimensionValues"][0]["value"],
-            "sessions": float(row["metricValues"][0]["value"]),
-            "conversions": float(row["metricValues"][1]["value"]),
-            "revenue": float(row["metricValues"][2]["value"]),
-        })
-    pd.DataFrame(out).to_csv(OUT_SRC, index=False)
+    df = fetch_ga4_kpis()
 
-    print("✅ GA4 export OK")
+    outfile = f"{outdir}/ga4_metrics.csv"
+    df.to_csv(outfile, index=False)
+    print(f"✅ GA4 metrics exported → {outfile}")
+
 
 if __name__ == "__main__":
     main()
