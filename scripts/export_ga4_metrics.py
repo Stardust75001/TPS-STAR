@@ -43,18 +43,20 @@ def fetch_ga4_kpis():
     print("📡 GA4 → sending request…")
     response = client.run_report(request)
 
-    # DEBUG PRINT
-    print("📡 GA4 RESPONSE RAW ROW COUNT =", len(response.rows))
+    # DEBUG
+    print("📡 GA4 RESPONSE ROWS =", len(response.rows))
 
+    # ---- FIX ICI ----
     if len(response.rows) == 0:
-        print("⚠️ GA4 returned **no rows**. Creating empty dataframe.")
+        print("⚠️ GA4 → aucune donnée reçue (0 rows).")
+        print("⚠️ Génération d’un CSV neutre.")
         return pd.DataFrame([{
             "activeUsers": 0,
             "newUsers": 0,
             "sessions": 0
         }])
 
-    # Normal extraction
+    # extraction normale
     first = response.rows[0].metric_values
     return pd.DataFrame([{
         "activeUsers": int(first[0].value),
@@ -68,13 +70,11 @@ def main():
         print("Usage: export_ga4_metrics.py --outdir DIR")
         sys.exit(0)
 
-    try:
-        outdir_index = sys.argv.index("--outdir") + 1
-    except ValueError:
+    if "--outdir" not in sys.argv:
         print("❌ Missing --outdir argument.")
         sys.exit(1)
 
-    outdir = sys.argv[outdir_index]
+    outdir = sys.argv[sys.argv.index("--outdir") + 1]
     os.makedirs(outdir, exist_ok=True)
 
     df = fetch_ga4_kpis()
