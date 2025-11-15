@@ -3,7 +3,7 @@ name: "📊 Weekly Business Report — THE PET SOCIETY"
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 8 * * 1"   # Lundi 08:00 UTC
+    - cron: "0 8 * * 1"
 
 permissions:
   contents: write
@@ -15,15 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ----------------------------------------------------------
-      # CHECKOUT
-      # ----------------------------------------------------------
       - name: "📥 Checkout repository"
         uses: actions/checkout@v4
 
-      # ----------------------------------------------------------
-      # PYTHON ENV
-      # ----------------------------------------------------------
       - name: "🐍 Setup Python"
         uses: actions/setup-python@v5
         with:
@@ -33,15 +27,9 @@ jobs:
         run: |
           pip install reportlab matplotlib pandas requests
 
-      # ----------------------------------------------------------
-      # CREATE REPORT_DATA
-      # ----------------------------------------------------------
       - name: "📁 Init report_data directory"
         run: mkdir -p report_data
 
-      # ----------------------------------------------------------
-      # SHOPIFY EXPORT
-      # ----------------------------------------------------------
       - name: "🛍 Export Shopify KPIs"
         env:
           SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
@@ -49,9 +37,6 @@ jobs:
         run: |
           python3 scripts/export_shopify_metrics.py
 
-      # ----------------------------------------------------------
-      # GA4 EXPORT
-      # ----------------------------------------------------------
       - name: "📈 Export GA4 KPIs"
         env:
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
@@ -59,9 +44,6 @@ jobs:
         run: |
           python3 scripts/export_ga4_metrics.py
 
-      # ----------------------------------------------------------
-      # MERGE CSV
-      # ----------------------------------------------------------
       - name: "🧩 Merge all metrics into metrics_full_report.csv"
         run: |
           {
@@ -75,53 +57,44 @@ jobs:
             done
           } > report_data/metrics_full_report.csv
 
-      # ----------------------------------------------------------
-      # PDF GENERATION
-      # ----------------------------------------------------------
-      - name: "📄 Generate Executive PDF Business Report"
+      - name: "📄 Generate Full Business Report PDF"
         run: |
           python3 scripts/generate_tps_business_report.py \
             report_data/metrics_full_report.csv \
             TPS-Executive-Business-Report.pdf
 
-      # ----------------------------------------------------------
-      # UPLOAD ARTIFACT
-      # ----------------------------------------------------------
-      - name: "📤 Upload report as GitHub artifact"
+      - name: "🧠 Generate 1-page Executive Summary"
+        run: |
+          python3 scripts/generate_tps_exec_summary.py \
+            report_data/metrics_full_report.csv \
+            TPS-Executive-Summary-1page.pdf
+
+      - name: "📤 Upload reports as GitHub artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: "TPS-Business-Report"
-          path: TPS-Executive-Business-Report.pdf
+          name: "TPS-Business-Reports"
+          path: |
+            TPS-Executive-Business-Report.pdf
+            TPS-Executive-Summary-1page.pdf
           retention-days: 30
 
-      # ----------------------------------------------------------
-      # SLACK NOTIFICATION
-      # ----------------------------------------------------------
-      - name: "💬 Push report to Slack (#reports)"
+      - name: "💬 Push report info to Slack (#reports)"
         if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          STATUS="Report generated ✓"
           TEXT="*📊 Weekly Business Report — THE PET SOCIETY*\n\n"
-          TEXT+="• Shopify KPIs ✓\n"
-          TEXT+="• GA4 KPIs ✓\n"
-          TEXT+="• Executive PDF ✓\n\n"
-          TEXT+="🔗 <${RUN_URL}|Voir le workflow>\n"
+          TEXT+="• Full report: TPS-Executive-Business-Report.pdf\n"
+          TEXT+="• Executive 1-page: TPS-Executive-Summary-1page.pdf\n\n"
+          TEXT+="🔗 <${RUN_URL}|Voir les artifacts dans GitHub Actions>\n"
 
-          PAYLOAD=$(jq -n \
-            --arg text "$TEXT" \
-            '{text: $text}')
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{text: $text}')
 
           curl -X POST -H "Content-type: application/json" \
             --data "$PAYLOAD" \
-            "$SLACK_WEBHOOK_URL" \
-            || true
+            "$SLACK_WEBHOOK_URL" || true
 
-      # ----------------------------------------------------------
-      # EMAIL FALLBACK
-      # ----------------------------------------------------------
       - name: "📧 Email fallback if Slack fails"
         if: failure()
         env:
@@ -135,6 +108,6 @@ jobs:
             echo "To: ${EMAIL_RECIPIENT}";
             echo "";
             echo "Slack notification failed.";
-            echo "Report available here:";
+            echo "Reports available here:";
             echo "${RUN_URL}";
           } | sendmail -t
