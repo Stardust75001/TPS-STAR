@@ -1,239 +1,442 @@
+# ============================================================
+#  A. Imports & Configuration globale
+# ============================================================
+
 import sys
 import os
 from datetime import datetime
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image
+    SimpleDocTemplate, Paragraph, Spacer, PageBreak,
+    Table, TableStyle, Image
 )
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen.canvas import Canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
-# ---------------------------------------------------
-# Entrées
-# ---------------------------------------------------
-csv_input = sys.argv[1]       # metrics_report.csv
+# --- Entrées CLI ---
+csv_input = sys.argv[1]       # ex: report_data/metrics_report.csv
 pdf_output = sys.argv[2]      # ex: TPS-Executive-Business-Report.pdf
 
-df_health = pd.read_csv(csv_input)
-
-# ---------------------------------------------------
-# Styles & couleurs TPS
-# ---------------------------------------------------
-TAUPE = colors.HexColor("#BA986E")
+# --- Palette consulting (dégradé bleu / gris) ---
+BLUE_DEEP = colors.HexColor("#1F3B73")
+BLUE_GREY = colors.HexColor("#4A5F78")
+GREY_LIGHT = colors.HexColor("#E8ECF1")
 BLACK = colors.HexColor("#1A1A1A")
 WHITE = colors.white
 
+# --- Logo TPS (téléchargé ou local) ---
+LOGO_URL = (
+    "https://cdn.shopify.com/s/files/1/0861/3180/2460/files/"
+    "LOGO_ARRONDI_NT12052025_-_1200x628.jpg-removebg-preview.png?v=1747069835"
+)
+LOGO_FILENAME = "tps_logo.png"
+
+
+# ============================================================
+#  B. Gestion des polices & styles
+# ============================================================
+
+def register_fonts():
+    """
+    Essaie d'enregistrer SF Pro Rounded si les fichiers sont présents.
+    Sinon fallback vers Helvetica.
+    Tu peux déposer tes fichiers fonts dans ./fonts et adapter les noms.
+    """
+    global FONT_BODY, FONT_BODY_BOLD
+
+    FONT_BODY = "Helvetica"
+    FONT_BODY_BOLD = "Helvetica-Bold"
+
+    # Exemple : si tu ajoutes SF Pro Rounded dans ./fonts, décommente et adapte :
+    # try:
+    #     pdfmetrics.registerFont(TTFont("SFProRounded", "fonts/SF-Pro-Rounded-Regular.ttf"))
+    #     pdfmetrics.registerFont(TTFont("SFProRounded-Bold", "fonts/SF-Pro-Rounded-Bold.ttf"))
+    #     FONT_BODY = "SFProRounded"
+    #     FONT_BODY_BOLD = "SFProRounded-Bold"
+    # except Exception:
+    #     # Fallback silencieux vers Helvetica
+    #     pass
+
+
+register_fonts()
+
 styles = getSampleStyleSheet()
-title_style = styles["Title"]
-subtitle_style = styles["Heading2"]
-text_style = styles["BodyText"]
 
-# Footer avec n° page + date
-def footer(canvas: Canvas, doc):
-    page_num = canvas.getPageNumber()
-    footer_text = f"Page {page_num} — Rapport généré le {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
-    canvas.setFont("Helvetica", 8)
-    canvas.drawRightString(570, 20, footer_text)
-
-# Document PDF
-doc = SimpleDocTemplate(
-    pdf_output,
-    pagesize=A4,
-    title="TPS Executive Business Report",
-    author="The Pet Society Paris",
+title_style = ParagraphStyle(
+    "TPS-Title",
+    parent=styles["Title"],
+    fontName=FONT_BODY_BOLD,
+    fontSize=14,
+    textColor=BLUE_DEEP,
+    alignment=1,  # CENTER
+    spaceAfter=12,
 )
 
-elements = []
+subtitle_style = ParagraphStyle(
+    "TPS-Subtitle",
+    parent=styles["Heading2"],
+    fontName=FONT_BODY_BOLD,
+    fontSize=12,
+    textColor=BLUE_GREY,
+    spaceAfter=8,
+)
 
-# ---------------------------------------------------
-# Helpers
-# ---------------------------------------------------
-def section(title: str):
-    """Ajoute un titre de section + espace."""
-    elements.append(Paragraph(f"<b>{title}</b>", title_style))
-    elements.append(Spacer(1, 12))
+text_style = ParagraphStyle(
+    "TPS-Body",
+    parent=styles["BodyText"],
+    fontName=FONT_BODY,
+    fontSize=11,
+    textColor=BLACK,
+    leading=14,
+)
+
+
+# ============================================================
+#  C. Helpers génériques (footer, logo, charts, tables, CSV)
+# ============================================================
+
+def footer(canvas: Canvas, doc):
+    """Footer bas droite avec numéro de page + date."""
+    page_num = canvas.getPageNumber()
+    footer_text = (
+        f"Page {page_num} • Rapport généré le "
+        f"{datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+    )
+    canvas.setFont(FONT_BODY, 8)
+    canvas.setFillColor(BLUE_GREY)
+    canvas.drawRightString(A4[0] - 30, 20, footer_text)
+
+
+def ensure_logo_local():
+    """
+    Télécharge le logo si non présent et renvoie le chemin.
+    """
+    if os.path.exists(LOGO_FILENAME):
+        return LOGO_FILENAME
+
+    try:
+        import urllib.request
+
+        urllib.request.urlretrieve(LOGO_URL, LOGO_FILENAME)
+        return LOGO_FILENAME
+    except Exception:
+        # Si le téléchargement échoue, on continue sans logo.
+        return None
+
+
+def section_title(text: str):
+    """Crée un titre de section (Paragraph) avec espacement."""
+    return [
+        Paragraph(f"<b>{text}</b>", title_style),
+        Spacer(1, 12),
+    ]
+
+
+def build_kpi_table(rows, header_bg=BLUE_DEEP):
+    """
+    Construit un tableau KPI centré, 2 colonnes.
+    rows = [[header1, header2], [val1, val2], ...]
+    """
+    table = Table(rows, hAlign="CENTER")
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), header_bg),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), FONT_BODY_BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), FONT_BODY),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -1), 0.3, BLUE_GREY),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.whitesmoke, GREY_LIGHT]),
+    ]))
+    return table
+
+
+def generate_health_chart(df, output_path="temp_health_chart.png"):
+    """
+    Génère un bar chart de la répartition des statuts.
+    Retourne le chemin de l'image ou None.
+    """
+    if df.empty or "Status" not in df.columns:
+        return None
+
+    counts = df["Status"].value_counts()
+    labels = list(counts.index)
+    values = list(counts.values)
+
+    plt.figure(figsize=(5, 3))
+    bars = plt.bar(labels, values, color="#1F3B73")
+
+    # Ajouter les valeurs sur les barres
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            height,
+            str(height),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
+
+    plt.title("Répartition des statuts des services", fontsize=11)
+    plt.xticks(rotation=30, ha="right", fontsize=8)
+    plt.yticks(fontsize=8)
+    plt.tight_layout()
+
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    return output_path
+
 
 def load_optional_metrics_csv(filename: str):
-    """Charge un CSV optionnel de type metric/value. Retourne dict(metric -> value) ou dict vide."""
+    """
+    Charge un CSV optionnel de type metric/value.
+    Retourne {metric: value} ou {} si absent/incompatible.
+    """
     if not os.path.exists(filename):
         return {}
     try:
         df = pd.read_csv(filename)
-        # On tolère "metric" ou "Metric"
-        metric_col = "metric" if "metric" in df.columns else ("Metric" if "Metric" in df.columns else None)
-        value_col = "value" if "value" in df.columns else ("Value" if "Value" in df.columns else None)
+        metric_col = None
+        value_col = None
+
+        for c in df.columns:
+            if c.lower() == "metric":
+                metric_col = c
+            if c.lower() == "value":
+                value_col = c
+
         if not metric_col or not value_col:
             return {}
         return dict(zip(df[metric_col], df[value_col]))
     except Exception:
         return {}
 
-def build_kpi_table(rows):
-    """Construit un tableau simple KPI à deux colonnes."""
-    table = Table(rows, hAlign="LEFT")
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), TAUPE),
-        ("TEXTCOLOR", (0,0), (-1,0), WHITE),
-        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
-        ("FONTSIZE", (0,0), (-1,-1), 10),
-        ("GRID", (0,0), (-1,-1), 0.5, BLACK),
-        ("ALIGN", (0,0), (-1,-1), "LEFT"),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-    ]))
-    return table
 
-def generate_health_chart(df):
-    """Génère un petit bar chart sur la santé des services (OK / INVALID / MISSING etc.)."""
-    if df.empty or "Status" not in df.columns:
-        return None
-    counts = df["Status"].value_counts()
-    labels = list(counts.index)
-    values = list(counts.values)
+# ============================================================
+#  D. Chargement des données
+# ============================================================
 
-    plt.figure(figsize=(5, 3))
-    plt.bar(labels, values, color="#BA986E")
-    plt.title("Répartition des statuts des services")
-    plt.xticks(rotation=30, ha="right")
-    plt.tight_layout()
-    chart_path = "temp_health_chart.png"
-    plt.savefig(chart_path)
-    plt.close()
-    return chart_path
+df_health = pd.read_csv(csv_input)
 
-# ---------------------------------------------------
-# Chargement des CSV métier optionnels (étapes futures)
-# ---------------------------------------------------
-shopify_metrics = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "shopify_metrics.csv"))
-ga4_metrics     = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "ga4_metrics.csv"))
-meta_metrics    = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "meta_metrics.csv"))
-gsc_metrics     = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "gsc_metrics.csv"))
-ahrefs_metrics  = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "ahrefs_metrics.csv"))
-social_metrics  = load_optional_metrics_csv(os.path.join(os.path.dirname(csv_input), "social_metrics.csv"))
+base_dir = os.path.dirname(csv_input)
 
-# ---------------------------------------------------
-# PAGE 1+ : EXECUTIVE SUMMARY
-# ---------------------------------------------------
-section("📌 Executive Summary")
+shopify_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "shopify_metrics.csv")
+)
+ga4_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "ga4_metrics.csv")
+)
+meta_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "meta_metrics.csv")
+)
+gsc_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "gsc_metrics.csv")
+)
+ahrefs_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "ahrefs_metrics.csv")
+)
+social_metrics = load_optional_metrics_csv(
+    os.path.join(base_dir, "social_metrics.csv")
+)
 
-# Calcul TPS Health Score (basé sur metrics_report.csv)
+
+# ============================================================
+#  E. Construction du document PDF
+# ============================================================
+
+doc = SimpleDocTemplate(
+    pdf_output,
+    pagesize=A4,
+    title="TPS Executive Business Report",
+    author="The Pet Society Paris",
+    leftMargin=36,
+    rightMargin=36,
+    topMargin=40,
+    bottomMargin=40,
+)
+
+elements = []
+
+# ------------------------------------------------------------
+# Page 1 — Logo + Executive Summary
+# ------------------------------------------------------------
+
+# Logo centré
+logo_path = ensure_logo_local()
+if logo_path:
+    logo = Image(logo_path, width=180, height=90)
+    logo.hAlign = "CENTER"
+    elements.append(logo)
+    elements.append(Spacer(1, 16))
+
+# Titre section
+elements += section_title("📌 Executive Summary")
+
 ok_count = (df_health["Status"] == "OK").sum()
 total = len(df_health)
 score = int((ok_count / total) * 100) if total > 0 else 0
 
 elements.append(Paragraph(
     f"<b>TPS Health Score global :</b> {score} / 100",
-    subtitle_style
+    subtitle_style,
 ))
 elements.append(Spacer(1, 8))
 
 elements.append(Paragraph(
     f"<b>Services OK :</b> {ok_count} / {total}",
-    text_style
+    text_style,
 ))
-elements.append(Spacer(1, 8))
+elements.append(Spacer(1, 10))
 
-# Si on a quelques données métier déjà branchées, on les met ici en résumé
+# Résumé business si métriques disponibles
 summary_lines = []
 
+# Shopify
 if "Conversions (7d)" in shopify_metrics:
-    summary_lines.append(f"• Conversions Shopify (7j) : {shopify_metrics['Conversions (7d)']}")
+    summary_lines.append(
+        f"• Conversions Shopify (7j) : {shopify_metrics['Conversions (7d)']}"
+    )
 if "Revenue (7d)" in shopify_metrics:
-    summary_lines.append(f"• Chiffre d'affaires (7j) : {shopify_metrics['Revenue (7d)']}")
+    summary_lines.append(
+        f"• Chiffre d'affaires (7j) : {shopify_metrics['Revenue (7d)']}"
+    )
 if "AOV (7d)" in shopify_metrics:
-    summary_lines.append(f"• Panier moyen (7j) : {shopify_metrics['AOV (7d)']}")
+    summary_lines.append(
+        f"• Panier moyen (7j) : {shopify_metrics['AOV (7d)']}"
+    )
 
+# GA4
 if "Sessions (7d)" in ga4_metrics:
-    summary_lines.append(f"• Sessions GA4 (7j) : {ga4_metrics['Sessions (7d)']}")
+    summary_lines.append(
+        f"• Sessions GA4 (7j) : {ga4_metrics['Sessions (7d)']}"
+    )
 if "ConvRate (7d)" in ga4_metrics:
-    summary_lines.append(f"• Taux de conversion Analytics (7j) : {ga4_metrics['ConvRate (7d)']}")
+    summary_lines.append(
+        f"• Taux de conversion Analytics (7j) : {ga4_metrics['ConvRate (7d)']}"
+    )
 
+# Meta
 if "ROAS (7d)" in meta_metrics:
-    summary_lines.append(f"• ROAS Meta Ads (7j) : {meta_metrics['ROAS (7d)']}")
+    summary_lines.append(
+        f"• ROAS Meta Ads (7j) : {meta_metrics['ROAS (7d)']}"
+    )
 
 if not summary_lines:
-    summary_text = "Données business détaillées non encore branchées (Shopify / GA4 / Meta). Le rapport utilise pour l’instant principalement l’état des intégrations techniques."
+    summary_text = (
+        "Les données business détaillées (CA, conversions, ROAS, SEO) "
+        "seront enrichies dès que les exports CSV Shopify / GA4 / Meta "
+        "seront branchés sur ce rapport."
+    )
 else:
     summary_text = "<br/>".join(summary_lines)
 
 elements.append(Paragraph(summary_text, text_style))
-elements.append(Spacer(1, 12))
+elements.append(Spacer(1, 16))
 
-# Graphique de répartition des statuts (OK/INVALID/MISSING…)
+# Graphique santé des services (centré)
 chart_path = generate_health_chart(df_health)
 if chart_path and os.path.exists(chart_path):
-    elements.append(Spacer(1, 12))
-    elements.append(Image(chart_path, width=400, height=240))
+    chart_img = Image(chart_path, width=400, height=240)
+    chart_img.hAlign = "CENTER"
+    elements.append(chart_img)
 
-# Fin Executive Summary → nouvelle section sur nouvelle page
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION BUSINESS — PAGE SUIVANTE
-# ---------------------------------------------------
-section("📈 Business Revenue")
+# ------------------------------------------------------------
+# Page 2 — Business Revenue
+# ------------------------------------------------------------
+elements += section_title("📈 Business Revenue")
 
-# Construire un bloc KPI Business
 business_rows = [["KPI", "Valeur"]]
 
 # Shopify
-business_rows.append(["Conversions Shopify (7j)", shopify_metrics.get("Conversions (7d)", "N/A")])
-business_rows.append(["Chiffre d'affaires (7j)", shopify_metrics.get("Revenue (7d)", "N/A")])
-business_rows.append(["Panier moyen (7j)", shopify_metrics.get("AOV (7d)", "N/A")])
+business_rows.append([
+    "Conversions Shopify (7j)",
+    shopify_metrics.get("Conversions (7d)", "N/A"),
+])
+business_rows.append([
+    "Chiffre d'affaires (7j)",
+    shopify_metrics.get("Revenue (7d)", "N/A"),
+])
+business_rows.append([
+    "Panier moyen (7j)",
+    shopify_metrics.get("AOV (7d)", "N/A"),
+])
 
 # GA4
-business_rows.append(["Sessions (7j)", ga4_metrics.get("Sessions (7d)", "N/A")])
-business_rows.append(["Taux conversion Analytics (7j)", ga4_metrics.get("ConvRate (7d)", "N/A")])
+business_rows.append([
+    "Sessions (7j)",
+    ga4_metrics.get("Sessions (7d)", "N/A"),
+])
+business_rows.append([
+    "Taux conversion Analytics (7j)",
+    ga4_metrics.get("ConvRate (7d)", "N/A"),
+])
 
 # Meta
-business_rows.append(["ROAS Meta (7j)", meta_metrics.get("ROAS (7d)", "N/A")])
-business_rows.append(["Budget Meta (7j)", meta_metrics.get("Spend (7d)", "N/A")])
+business_rows.append([
+    "ROAS Meta (7j)",
+    meta_metrics.get("ROAS (7d)", "N/A"),
+])
+business_rows.append([
+    "Budget Meta (7j)",
+    meta_metrics.get("Spend (7d)", "N/A"),
+])
 
 business_table = build_kpi_table(business_rows)
 elements.append(business_table)
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION TECH STABILITY / OPS — PAGE SUIVANTE
-# ---------------------------------------------------
-section("🛠 Tech Stability / Ops")
+# ------------------------------------------------------------
+# Page 3 — Tech Stability / Ops
+# ------------------------------------------------------------
+elements += section_title("🛠 Tech Stability / Ops")
 
 elements.append(Paragraph(
-    "Vue d’ensemble de la santé des intégrations (Cloudflare, Meta, Sentry, GA4, Ahrefs, GTM, Zik, GSC, Slack, SMTP, Shopify, Amplitude…).",
-    text_style
+    "Vue d’ensemble des intégrations techniques clés : Cloudflare, Meta, "
+    "Sentry, GA4, Ahrefs, GTM, Zik, GSC, Slack, SMTP, Shopify, Amplitude…",
+    text_style,
 ))
-elements.append(Spacer(1, 8))
+elements.append(Spacer(1, 10))
 
-# Tableau complet de metrics_report.csv
 health_rows = [list(df_health.columns)] + df_health.values.tolist()
-health_table = Table(health_rows, hAlign="LEFT")
+health_table = Table(health_rows, hAlign="CENTER")
 health_table.setStyle(TableStyle([
-    ("BACKGROUND", (0,0), (-1,0), TAUPE),
-    ("TEXTCOLOR", (0,0), (-1,0), WHITE),
-    ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
-    ("FONTSIZE", (0,0), (-1,-1), 8),
-    ("GRID", (0,0), (-1,-1), 0.25, BLACK),
-    ("ALIGN", (0,0), (-1,-1), "LEFT"),
-    ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ("BACKGROUND", (0, 0), (-1, 0), BLUE_DEEP),
+    ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+    ("FONTNAME", (0, 0), (-1, 0), FONT_BODY_BOLD),
+    ("FONTNAME", (0, 1), (-1, -1), FONT_BODY),
+    ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ("GRID", (0, 0), (-1, -1), 0.25, BLUE_GREY),
+    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 ]))
 elements.append(health_table)
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION MARKETING / SEO — PAGE SUIVANTE
-# ---------------------------------------------------
-section("👁️ Marketing / SEO")
+# ------------------------------------------------------------
+# Page 4 — Marketing / SEO
+# ------------------------------------------------------------
+elements += section_title("👁️ Marketing & SEO")
 
 seo_rows = [["KPI", "Valeur"]]
 
 # GSC
 seo_rows.append(["Clics SEO (7j)", gsc_metrics.get("Clicks (7d)", "N/A")])
-seo_rows.append(["Impressions SEO (7j)", gsc_metrics.get("Impressions (7d)", "N/A")])
+seo_rows.append([
+    "Impressions SEO (7j)",
+    gsc_metrics.get("Impressions (7d)", "N/A"),
+])
 seo_rows.append(["Pages indexées", gsc_metrics.get("Valid Pages", "N/A")])
 
 # Ahrefs
@@ -241,108 +444,126 @@ seo_rows.append(["Domain Rating", ahrefs_metrics.get("Domain Rating", "N/A")])
 seo_rows.append(["Backlinks", ahrefs_metrics.get("Backlinks", "N/A")])
 
 # Social
-seo_rows.append(["Instagram Engagement (7j)", social_metrics.get("Instagram Engagement (7d)", "N/A")])
-seo_rows.append(["TikTok Views (7j)", social_metrics.get("TikTok Views (7d)", "N/A")])
+seo_rows.append([
+    "Instagram Engagement (7j)",
+    social_metrics.get("Instagram Engagement (7d)", "N/A"),
+])
+seo_rows.append([
+    "TikTok Views (7j)",
+    social_metrics.get("TikTok Views (7d)", "N/A"),
+])
 
-seo_table = build_kpi_table(seo_rows)
+seo_table = build_kpi_table(seo_rows, header_bg=BLUE_GREY)
 elements.append(seo_table)
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION DATA & MONITORING — PAGE SUIVANTE
-# ---------------------------------------------------
-section("🧩 Data Quality & Monitoring")
+# ------------------------------------------------------------
+# Page 5 — Data Quality & Monitoring
+# ------------------------------------------------------------
+elements += section_title("🧩 Data Quality & Monitoring")
 
 dq_rows = [
     ["Indicateur", "Statut / Commentaire"],
-    ["Qualité tracking (GTM / GA4 / Pixel)", "À dériver des statuts GTM_ID, GA4_TOKEN, META_TOKEN, SHOPIFY_API_KEY, etc."],
-    ["Exhaustivité métriques", "À préciser lorsque les CSV Shopify/GA4/Meta seront branchés."],
-    ["Historique erreurs système", "À enrichir avec un log d’erreurs ou des stats supplémentaires."],
+    [
+        "Qualité tracking (GTM / GA4 / Pixel)",
+        "À dériver des statuts GTM_ID, GA4_TOKEN, META_TOKEN, SHOPIFY_API_KEY, etc.",
+    ],
+    [
+        "Exhaustivité métriques",
+        "À préciser lorsque les CSV Shopify / GA4 / Meta seront branchés.",
+    ],
+    [
+        "Historique erreurs système",
+        "À enrichir avec des logs / statistiques supplémentaires (Sentry, JS errors…).",
+    ],
 ]
 
-dq_table = build_kpi_table(dq_rows)
+dq_table = build_kpi_table(dq_rows, header_bg=BLUE_DEEP)
 elements.append(dq_table)
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION ANALYSE — PAGE SUIVANTE
-# ---------------------------------------------------
-section("🔍 Analyse Croisée (Business / Tech / SEO / Data)")
+# ------------------------------------------------------------
+# Page 6 — Analyse & Recommandations
+# ------------------------------------------------------------
+elements += section_title("🔍 Analyse & Recommandations")
 
-# Analyse simple basée sur le score et les statuts
 analysis_lines = []
 
+# Analyse score global
 if score == 100:
-    analysis_lines.append("• L’ensemble des services monitorés est actuellement opérationnel (100% OK).")
+    analysis_lines.append(
+        "• L’ensemble des services monitorés est actuellement opérationnel (100% OK)."
+    )
 elif score >= 80:
-    analysis_lines.append("• La majorité des services est opérationnelle. Quelques intégrations sont à surveiller.")
+    analysis_lines.append(
+        "• La majorité des services est opérationnelle. Quelques intégrations sont à surveiller."
+    )
 else:
-    analysis_lines.append("• Plusieurs services clés présentent des anomalies. Il est recommandé de prioriser la remédiation.")
+    analysis_lines.append(
+        "• Plusieurs services clés présentent des anomalies. Prioriser la remédiation sur les intégrations critiques."
+    )
 
-if "SHOPIFY_API_KEY" in df_health["Service"].values:
-    shopify_status = df_health.loc[df_health["Service"] == "SHOPIFY_API_KEY", "Status"].iloc[0]
-    if shopify_status != "OK":
-        analysis_lines.append("• Shopify API Key n’est pas en statut OK → risque direct sur l’accès aux données business.")
-if "GA4_TOKEN" in df_health["Service"].values:
-    ga4_status = df_health.loc[df_health["Service"] == "GA4_TOKEN", "Status"].iloc[0]
-    if ga4_status != "OK":
-        analysis_lines.append("• GA4 Token invalide ou manquant → les analyses Analytics ne seront pas complètes.")
-if "META_TOKEN" in df_health["Service"].values:
-    meta_status = df_health.loc[df_health["Service"] == "META_TOKEN", "Status"].iloc[0]
-    if meta_status != "OK":
-        analysis_lines.append("• Meta Token à corriger → impact sur Meta Ads & Pixel Debugging.")
-if "GSC_CREDENTIALS" in df_health["Service"].values:
-    gsc_status = df_health.loc[df_health["Service"] == "GSC_CREDENTIALS", "Status"].iloc[0]
-    if gsc_status != "OK":
-        analysis_lines.append("• GSC Credentials non valides → pas de vision SEO Search Console fiable.")
+# Points critiques
+def append_if_status_not_ok(service_key, label):
+    if service_key in df_health["Service"].values:
+        status = df_health.loc[
+            df_health["Service"] == service_key, "Status"
+        ].iloc[0]
+        if status != "OK":
+            analysis_lines.append(f"• {label} : statut {status} → action requise.")
+
+append_if_status_not_ok("SHOPIFY_API_KEY", "Shopify API Key (données produits / commandes)")
+append_if_status_not_ok("GA4_TOKEN", "GA4 Token (Analytics / funnels)")
+append_if_status_not_ok("META_TOKEN", "Meta Token (Meta Ads / Pixel)")
+append_if_status_not_ok("GSC_CREDENTIALS", "GSC Credentials (Search Console SEO)")
+append_if_status_not_ok("CLOUDFLARE_TOKEN", "Cloudflare Token (DNS / edge security)")
 
 if not analysis_lines:
-    analysis_lines.append("• Les données actuelles ne permettent pas encore une analyse détaillée des KPI business. Brancher Shopify / GA4 / Meta pour enrichir ce rapport.")
+    analysis_lines.append(
+        "• Les données actuelles ne permettent pas encore une analyse détaillée des KPI business. "
+        "Brancher Shopify / GA4 / Meta / Ahrefs pour enrichir ce rapport."
+    )
 
 analysis_text = "<br/>".join(analysis_lines)
 elements.append(Paragraph(analysis_text, text_style))
-elements.append(PageBreak())
-
-# ---------------------------------------------------
-# SECTION RECOMMANDATIONS — PAGE SUIVANTE
-# ---------------------------------------------------
-section("⭐ Recommandations Actionnables")
+elements.append(Spacer(1, 16))
 
 recos = """
 <b>À 48 heures :</b><br/>
-• Vérifier et corriger les secrets en statut MISSING / INVALID (Shopify, GA4, Meta, GSC, Slack, SMTP…).<br/>
-• S’assurer que GTM, GA4 et Pixel Meta remontent correctement les évènements clés (page_view, view_item, add_to_cart, purchase).<br/><br/>
+• Corriger en priorité les secrets en statut MISSING / INVALID (Shopify, GA4, Meta, GSC, Slack, SMTP…).<br/>
+• Vérifier que GTM, GA4 et le Pixel Meta remontent correctement les évènements clés (page_view, view_item, add_to_cart, purchase).<br/><br/>
 
 <b>À 7 jours :</b><br/>
-• Brancher les exports automatisés Shopify (commandes, CA, AOV) dans un CSV <i>shopify_metrics.csv</i> utilisé par ce rapport.<br/>
-• Brancher un rapport GA4 (sessions, conv rate, sources) dans <i>ga4_metrics.csv</i>.<br/>
+• Brancher les exports automatisés Shopify (commandes, CA, AOV) dans <i>shopify_metrics.csv</i> utilisé par ce rapport.<br/>
+• Brancher un rapport GA4 (sessions, conversion rate, top sources) dans <i>ga4_metrics.csv</i>.<br/>
 • Brancher un résumé Meta Ads (ROAS, spend, CPA) dans <i>meta_metrics.csv</i>.<br/><br/>
 
 <b>À 30 jours :</b><br/>
-• Mettre en place un dashboard interactif (Streamlit / Notion / Data Studio) alimenté par les mêmes sources que ce rapport PDF.<br/>
-• Historiser les rapports (journalier / hebdo) pour suivre les tendances et anticiper les risques.<br/>
+• Mettre en place un dashboard interactif (Notion / Data Studio / Streamlit) alimenté par les mêmes sources que ce PDF.<br/>
+• Historiser les rapports (hebdomadaire) pour suivre les tendances et anticiper les risques.<br/>
 • Ajouter des alertes Slack dès qu’un service clé passe en statut INVALID / MISSING.<br/>
 """
 elements.append(Paragraph(recos, text_style))
 elements.append(PageBreak())
 
-# ---------------------------------------------------
-# SECTION ANNEXE — PAGE SUIVANTE
-# ---------------------------------------------------
-section("📎 Annexe — Données brutes des services")
+# ------------------------------------------------------------
+# Page 7 — Annexe : données brutes
+# ------------------------------------------------------------
+elements += section_title("📎 Annexe — Données brutes des services")
 
 annex_rows = [list(df_health.columns)] + df_health.values.tolist()
-annex_table = Table(annex_rows, hAlign="LEFT")
+annex_table = Table(annex_rows, hAlign="CENTER")
 annex_table.setStyle(TableStyle([
-    ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
-    ("FONTSIZE", (0,0), (-1,-1), 7),
-    ("GRID", (0,0), (-1,-1), 0.25, BLACK),
-    ("ALIGN", (0,0), (-1,-1), "LEFT"),
-    ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ("FONTNAME", (0, 0), (-1, -1), FONT_BODY),
+    ("FONTSIZE", (0, 0), (-1, -1), 7),
+    ("GRID", (0, 0), (-1, -1), 0.25, BLUE_GREY),
+    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 ]))
 elements.append(annex_table)
 
-# ---------------------------------------------------
-# Génération du PDF
-# ---------------------------------------------------
+# ============================================================
+#  F. Génération du PDF
+# ============================================================
+
 doc.build(elements, onFirstPage=footer, onLaterPages=footer)
