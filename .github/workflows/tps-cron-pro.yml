@@ -1,0 +1,140 @@
+name: TPS – Daily Pro Automation
+
+on:
+  schedule:
+    # Tous les jours à 09h00 Paris
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  daily-report:
+    name: Generate PDF + Slack Upload + Backup
+    runs-on: ubuntu-latest
+    env:
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      CHANNEL_ID: C09QS5VMFAA
+
+    steps:
+    # -----------------------------------------------------
+    # 1) CHECKOUT DU REPO
+    # -----------------------------------------------------
+    - name: Checkout TPS repository
+      uses: actions/checkout@v4
+
+    # -----------------------------------------------------
+    # 2) INSTALL PYTHON + DEPENDANCES
+    # -----------------------------------------------------
+    - name: Install Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Python dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip install reportlab matplotlib pandas
+
+    # -----------------------------------------------------
+    # 3) GENERATION DU PDF
+    # -----------------------------------------------------
+    - name: Run TPS PDF generator
+      run: |
+        python3 "TPS-STAR-WORKTREE/tools/tps_generate_pdf.py"
+
+    # Chemin PDF produit par ton script
+    - name: Verify PDF exists
+      run: |
+        if [ ! -f "TPS STAR/PRODUCTS/STOCK - CATALOG MANAGEMENT/TPS_DASHBOARD_REPORT.pdf" ]; then
+          echo "❌ PDF introuvable !"
+          exit 1
+        fi
+
+    # -----------------------------------------------------
+    # 4) EXTRACTION METADONNÉES PDF
+    # -----------------------------------------------------
+    - name: Get file size
+      id: pdf
+      run: |
+        FILE="TPS STAR/PRODUCTS/STOCK - CATALOG MANAGEMENT/TPS_DASHBOARD_REPORT.pdf"
+        echo "size=$(stat -c%s "$FILE")" >> $GITHUB_OUTPUT
+        echo "name=$(basename "$FILE")" >> $GITHUB_OUTPUT
+
+    # -----------------------------------------------------
+    # 5) SLACK – INITIALISATION UPLOAD
+    # -----------------------------------------------------
+    - name: Slack — Init Upload URL
+      id: slack_init
+      run: |
+        FILE_NAME="${{ steps.pdf.outputs.name }}"
+        FILE_SIZE="${{ steps.pdf.outputs.size }}"
+
+        RESP=$(curl -s -X POST "https://slack.com/api/files.getUploadURLExternal" \
+          -H "Authorization: Bearer $SLACK_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data "{\"filename\":\"$FILE_NAME\",\"length\":$FILE_SIZE}")
+
+        echo "Slack init response: $RESP"
+
+        UPLOAD_URL=$(echo "$RESP" | python3 -c 'import sys, json; d=json.load(sys.stdin); print(d.get("upload_url",""))')
+        FILE_ID=$(echo "$RESP" | python3 -c 'import sys, json; d=json.load(sys.stdin); print(d.get("file_id",""))')
+
+        if [ -z "$UPLOAD_URL" ]; then echo "❌ Pas d’upload_url"; exit 1; fi
+        if [ -z "$FILE_ID" ]; then echo "❌ Pas de file_id"; exit 1; fi
+
+        echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+        echo "file_id=$FILE_ID" >> $GITHUB_OUTPUT
+
+    # -----------------------------------------------------
+    # 6) SLACK – UPLOAD BINAIRE
+    # -----------------------------------------------------
+    - name: Slack — Binary Upload
+      run: |
+        FILE="TPS STAR/PRODUCTS/STOCK - CATALOG MANAGEMENT/TPS_DASHBOARD_REPORT.pdf"
+        curl -s -X POST "${{ steps.slack_init.outputs.upload_url }}" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @"$FILE"
+
+    # -----------------------------------------------------
+    # 7) SLACK – FINALISATION UPLOAD
+    # -----------------------------------------------------
+    - name: Slack — Complete Upload
+      run: |
+        curl -s -X POST "https://slack.com/api/files.completeUploadExternal" \
+          -H "Authorization: Bearer $SLACK_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data "{
+            \"files\": [{\"id\": \"${{ steps.slack_init.outputs.file_id }}\", \"title\": \"TPS Daily KPI Dashboard\"}],
+            \"channel_id\": \"${CHANNEL_ID}\"
+          }"
+
+    # -----------------------------------------------------
+    # 8) MESSAGE SLACK CORPORATE
+    # -----------------------------------------------------
+    - name: Slack — Post Notification
+      run: |
+        curl -s -X POST "https://slack.com/api/chat.postMessage" \
+          -H "Authorization: Bearer $SLACK_TOKEN" \
+          -H "Content-Type: application/json; charset=utf-8" \
+          --data "{
+            \"channel\": \"${CHANNEL_ID}\",
+            \"text\": \"🐾 *TPS Automation – Daily KPI Report Dispatched* 📊🚀\nLe PDF est joint au message.\"
+          }"
+
+    # -----------------------------------------------------
+    # 9) BACKUP PDF DANS LE REPO
+    # -----------------------------------------------------
+    - name: Save backup inside repository
+      run: |
+        mkdir -p backups
+        ts=$(date +'%Y-%m-%d_%H-%M')
+        cp "TPS STAR/PRODUCTS/STOCK - CATALOG MANAGEMENT/TPS_DASHBOARD_REPORT.pdf" "backups/TPS_DASHBOARD_REPORT_$ts.pdf"
+
+    - name: Commit backup
+      run: |
+        git config --global user.name "tps-automation-bot"
+        git config --global user.email "bot@thepetsociety.paris"
+        git add backups
+        git commit -m "Automated backup — $(date)" || echo "Nothing to commit"
+
+    - name: Push backup
+      run: git push origin DEV
