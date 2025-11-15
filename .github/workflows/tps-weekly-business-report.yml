@@ -1,0 +1,110 @@
+name: "📊 TPS Weekly Business Report"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"   # Lundi 07:00 UTC
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build-report:
+    name: "📘 Generate TPS Weekly Business Report"
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------------------------------------------------
+      # 1) Checkout
+      # --------------------------------------------------------------------
+      - name: "Checkout repo"
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------------------
+      # 2) Python Setup
+      # --------------------------------------------------------------------
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: "Install Python deps"
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas matplotlib reportlab requests
+
+      # --------------------------------------------------------------------
+      # 3) Prepare data folder (where all CSVs will be generated)
+      # --------------------------------------------------------------------
+      - name: "Ensure report_data directory"
+        run: mkdir -p report_data
+
+      # --------------------------------------------------------------------
+      # 4) Shopify Metrics Export
+      # --------------------------------------------------------------------
+      - name: "Export Shopify Metrics"
+        env:
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+          SHOPIFY_ADMIN_API_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_ACCESS_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+        run: |
+          python3 scripts/export_shopify_metrics.py \
+            report_data/shopify_metrics.csv \
+            report_data/shopify_timeseries.csv
+
+      # --------------------------------------------------------------------
+      # 5) GA4 Metrics Export
+      # --------------------------------------------------------------------
+      - name: "Export GA4 Metrics"
+        env:
+          GA4_ACCESS_TOKEN: ${{ secrets.GA4_ACCESS_TOKEN }}
+          GA4_REFRESH_TOKEN: ${{ secrets.GA4_REFRESH_TOKEN }}
+          GA4_CLIENT_ID: ${{ secrets.GA4_CLIENT_ID }}
+          GA4_CLIENT_SECRET: ${{ secrets.GA4_CLIENT_SECRET }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+        run: |
+          python3 scripts/export_ga4_metrics.py \
+            report_data/ga4_metrics.csv \
+            report_data/ga4_timeseries.csv \
+            report_data/ga4_sources.csv
+
+      # --------------------------------------------------------------------
+      # 6) Merge all CSVs → metrics_full_report.csv
+      # --------------------------------------------------------------------
+      - name: "Merge All Metrics"
+        run: |
+          python3 scripts/merge_all_metrics.py \
+            report_data \
+            report_data/metrics_full_report.csv
+
+      # --------------------------------------------------------------------
+      # 7) Generate the FULL PDF Business Report
+      # --------------------------------------------------------------------
+      - name: "Generate FULL Business Report"
+        run: |
+          python3 scripts/generate_tps_business_report.py \
+            report_data/metrics_full_report.csv \
+            TPS-Business-Weekly.pdf
+
+      # --------------------------------------------------------------------
+      # 8) Upload PDF to GitHub Artifacts
+      # --------------------------------------------------------------------
+      - name: "Upload PDF Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: tps-weekly-business-report
+          path: TPS-Business-Weekly.pdf
+
+      # --------------------------------------------------------------------
+      # 9) Send PDF to Slack
+      # --------------------------------------------------------------------
+      - name: "Send PDF to Slack channel #reports"
+        if: always()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack-message: "📊 *TPS Weekly Business Report* — nouvelle édition dispo !"
+          file-path: "TPS-Business-Weekly.pdf"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
