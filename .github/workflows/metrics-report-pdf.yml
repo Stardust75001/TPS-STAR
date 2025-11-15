@@ -1,0 +1,49 @@
+name: "📄 TPS Metrics PDF Report"
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["🧠 Verify + Resume + PDF + Slack (Dual Mode)"]
+    types:
+      - completed
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download metrics_report.csv from artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: metrics-report
+          path: pdf_data
+
+      - name: Install Python + ReportLab
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip install reportlab pandas
+
+      - name: Generate TPS PDF report
+        run: |
+          python3 ./scripts/generate_metrics_pdf.py pdf_data/metrics_report.csv metrics_report.pdf
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TPS-metrics-report-pdf
+          path: metrics_report.pdf
+
+      - name: Send PDF to Slack (optional)
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -F "file=@metrics_report.pdf" \
+               -F "channels=${{ secrets.SLACK_CHANNEL }}" \
+               -F "initial_comment=📄 *TPS Metrics PDF report ready!*" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               https://slack.com/api/files.upload
