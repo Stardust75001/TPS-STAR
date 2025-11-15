@@ -1,151 +1,173 @@
 #!/usr/bin/env python3
 """
-export_ga4_metrics.py — THE PET SOCIETY
-GA4 Data API Exporter (sessions, revenue, conversions, timeseries, acquisition)
+export_ga4_metrics.py
 
-Outputs:
- - report_data/ga4_metrics.csv
- - report_data/ga4_timeseries.csv
- - report_data/ga4_sources.csv
+Usage:
+  python export_ga4_metrics.py ga4_metrics.csv ga4_timeseries.csv ga4_sources.csv
+
+Sortie 1 (résumé 7j) : ga4_metrics.csv
+  metric,value
+  Revenue (7d),1234.50
+  Sessions (7d),987
+  Conversions (7d),42
+
+Sortie 2 (timeseries) : ga4_timeseries.csv
+  date,revenue,sessions,conversions
+
+Sortie 3 (sources) : ga4_sources.csv
+  channel,sessions,conversions,revenue
 """
 
 import os
+import sys
 import csv
+from typing import List, Dict
+
 import requests
-from datetime import datetime, timedelta
 
 
-BASE_DIR = "report_data"
-os.makedirs(BASE_DIR, exist_ok=True)
-
-GA4_PROPERTY_ID = os.getenv("GA4_PROPERTY_ID")
-GA4_TOKEN = os.getenv("GA4_TOKEN")  # Generated daily by refresh workflow
-
-if not GA4_PROPERTY_ID:
-    raise SystemExit("❌ Missing GA4_PROPERTY_ID in GitHub Secrets.")
-
-if not GA4_TOKEN:
-    raise SystemExit("❌ Missing GA4_TOKEN (refresh workflow must run).")
+def get_env(name: str) -> str:
+    val = os.getenv(name)
+    if not val:
+        raise SystemExit(f"❌ Missing env var: {name}")
+    return val
 
 
-API_URL = f"https://analyticsdata.googleapis.com/v1beta/properties/{GA4_PROPERTY_ID}:runReport"
-HEADERS = {"Authorization": f"Bearer {GA4_TOKEN}"}
+def get_access_token() -> str:
+    """Rafraîchit un access token à partir du refresh token."""
+    refresh_token = get_env("GA4_REFRESH_TOKEN")
+    client_id = get_env("GA4_CLIENT_ID")
+    client_secret = get_env("GA4_CLIENT_SECRET")
 
-
-def ga4_query(body):
-    resp = requests.post(API_URL, headers=HEADERS, json=body)
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
+    )
     if resp.status_code != 200:
-        print("❌ GA4 ERROR:", resp.text)
-        resp.raise_for_status()
+        raise SystemExit(f"❌ OAuth token error {resp.status_code}: {resp.text}")
+
+    access_token = resp.json().get("access_token")
+    if not access_token:
+        raise SystemExit("❌ No access_token in OAuth response")
+    return access_token
+
+
+def run_report(property_id: str, body: Dict) -> Dict:
+    token = get_access_token()
+    url = f"https://analyticsdata.googleapis.com/v1beta/properties/{property_id}:runReport"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.post(url, json=body, headers=headers)
+    if resp.status_code != 200:
+        raise SystemExit(f"❌ GA4 API error {resp.status_code}: {resp.text}")
     return resp.json()
 
 
-# ================================
-# 1. MAIN KPIS
-# ================================
-body_kpi = {
-    "dateRanges": [{"startDate": "7daysAgo", "endDate": "today"}],
-    "metrics": [
-        {"name": "sessions"},
-        {"name": "totalUsers"},
-        {"name": "conversions"},
-        {"name": "purchaseRevenue"},
-        {"name": "avgSessionDuration"},
-        {"name": "bounceRate"}
-    ]
-}
-
-data = ga4_query(body_kpi)
-values = data["rows"][0]["metricValues"]
-
-sessions = float(values[0]["value"])
-users = float(values[1]["value"])
-convs = float(values[2]["value"])
-revenue = float(values[3]["value"])
-avg_duration = float(values[4]["value"])
-bounce = float(values[5]["value"])
+def rows_to_dicts(resp: Dict, dims: List[str], mets: List[str]) -> List[Dict]:
+    out = []
+    for row in resp.get("rows", []):
+        dvals = [d.get("value") for d in row.get("dimensionValues", [])]
+        mvals = [m.get("value") for m in row.get("metricValues", [])]
+        entry = {dims[i]: dvals[i] for i in range(len(dims))}
+        for i, m in enumerate(mets):
+            entry[m] = float(mvals[i]) if mvals[i] not in (None, "") else 0.0
+        out.append(entry)
+    return out
 
 
-# Write file
-metrics_path = os.path.join(BASE_DIR, "ga4_metrics.csv")
-with open(metrics_path, "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["metric", "value"])
-    w.writerow(["Sessions (7d)", sessions])
-    w.writerow(["Users (7d)", users])
-    w.writerow(["Conversions (7d)", convs])
-    w.writerow(["Revenue (7d)", revenue])
-    w.writerow(["Avg Session Duration (s)", avg_duration])
-    w.writerow(["Bounce Rate (%)", bounce])
+def export_ga4(property_id: str, summary_path: str, ts_path: str, sources_path: str):
+    # --- 1) Timeseries (date)
+    body_ts = {
+        "dateRanges": [{"startDate": "7daysAgo", "endDate": "today"}],
+        "dimensions": [{"name": "date"}],
+        "metrics": [
+            {"name": "totalRevenue"},
+            {"name": "sessions"},
+            {"name": "conversions"},
+        ],
+    }
+    resp_ts = run_report(property_id, body_ts)
+    ts_rows = rows_to_dicts(resp_ts, ["date"], ["totalRevenue", "sessions", "conversions"])
 
-print(f"✅ GA4 KPIs exported → {metrics_path}")
+    # --- 2) Channels
+    body_channels = {
+        "dateRanges": [{"startDate": "7daysAgo", "endDate": "today"}],
+        "dimensions": [{"name": "sessionDefaultChannelGroup"}],
+        "metrics": [
+            {"name": "sessions"},
+            {"name": "conversions"},
+            {"name": "totalRevenue"},
+        ],
+        "orderBys": [{"metric": {"metricName": "sessions"}, "desc": True}],
+    }
+    resp_ch = run_report(property_id, body_channels)
+    ch_rows = rows_to_dicts(
+        resp_ch,
+        ["sessionDefaultChannelGroup"],
+        ["sessions", "conversions", "totalRevenue"],
+    )
+
+    # --- 3) Résumé 7 jours – on somme la timeseries
+    total_rev = sum(r["totalRevenue"] for r in ts_rows)
+    total_sessions = sum(r["sessions"] for r in ts_rows)
+    total_conv = sum(r["conversions"] for r in ts_rows)
+
+    # --- Write summary
+    with open(summary_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["metric", "value"])
+        w.writerow(["Revenue (7d)", f"{total_rev:.2f}"])
+        w.writerow(["Sessions (7d)", int(total_sessions)])
+        w.writerow(["Conversions (7d)", int(total_conv)])
+
+    # --- Write timeseries
+    with open(ts_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["date", "revenue", "sessions", "conversions"])
+        for r in ts_rows:
+            # GA4 date -> YYYYMMDD
+            d = r["date"]
+            date_iso = f"{d[0:4]}-{d[4:6]}-{d[6:8]}"
+            w.writerow([
+                date_iso,
+                f"{r['totalRevenue']:.2f}",
+                int(r["sessions"]),
+                int(r["conversions"]),
+            ])
+
+    # --- Write channels
+    with open(sources_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["channel", "sessions", "conversions", "revenue"])
+        for r in ch_rows:
+            w.writerow([
+                r["sessionDefaultChannelGroup"],
+                int(r["sessions"]),
+                int(r["conversions"]),
+                f"{r['totalRevenue']:.2f}",
+            ])
+
+    print(f"✅ GA4 summary     -> {summary_path}")
+    print(f"✅ GA4 timeseries  -> {ts_path}")
+    print(f"✅ GA4 sources     -> {sources_path}")
 
 
-# ================================
-# 2. TIMESERIES (sessions, conv, revenue)
-# ================================
-body_ts = {
-    "dateRanges": [{"startDate": "7daysAgo", "endDate": "today"}],
-    "dimensions": [{"name": "date"}],
-    "metrics": [
-        {"name": "sessions"},
-        {"name": "conversions"},
-        {"name": "purchaseRevenue"},
-    ]
-}
+def main():
+    if len(sys.argv) != 4:
+        print("Usage: export_ga4_metrics.py ga4_metrics.csv ga4_timeseries.csv ga4_sources.csv")
+        raise SystemExit(1)
 
-ts = ga4_query(body_ts)
+    summary_path = sys.argv[1]
+    ts_path = sys.argv[2]
+    sources_path = sys.argv[3]
+    prop_id = get_env("GA4_PROPERTY_ID")
 
-ts_path = os.path.join(BASE_DIR, "ga4_timeseries.csv")
-with open(ts_path, "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["date", "sessions", "conversions", "revenue"])
-    for row in ts["rows"]:
-        date = row["dimensionValues"][0]["value"]
-        s = row["metricValues"][0]["value"]
-        c = row["metricValues"][1]["value"]
-        r = row["metricValues"][2]["value"]
-        w.writerow([date, s, c, r])
-
-print(f"📈 GA4 Timeseries exported → {ts_path}")
+    export_ga4(prop_id, summary_path, ts_path, sources_path)
 
 
-# ================================
-# 3. ACQUISITION CHANNELS
-# ================================
-body_src = {
-    "dateRanges": [{"startDate": "7daysAgo", "endDate": "today"}],
-    "dimensions": [
-        {"name": "sessionDefaultChannelGroup"},
-        {"name": "medium"},
-        {"name": "source"},
-    ],
-    "metrics": [
-        {"name": "sessions"},
-        {"name": "conversions"},
-        {"name": "purchaseRevenue"},
-    ],
-    "orderBys": [{
-        "metric": {"metricName": "sessions"},
-        "desc": True
-    }],
-    "limit": 50
-}
-
-src = ga4_query(body_src)
-
-src_path = os.path.join(BASE_DIR, "ga4_sources.csv")
-with open(src_path, "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["channel", "medium", "source", "sessions", "conversions", "revenue"])
-    for row in src["rows"]:
-        ch = row["dimensionValues"][0]["value"]
-        md = row["dimensionValues"][1]["value"]
-        so = row["dimensionValues"][2]["value"]
-        s = row["metricValues"][0]["value"]
-        c = row["metricValues"][1]["value"]
-        r = row["metricValues"][2]["value"]
-        w.writerow([ch, md, so, s, c, r])
-
-print(f"🌐 GA4 Sources exported → {src_path}")
-print("🔥 GA4 export complete.")
+if __name__ == "__main__":
+    main()
