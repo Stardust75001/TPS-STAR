@@ -1,186 +1,79 @@
-# ============================================================
-# 🧾 THE PET SOCIETY — Weekly Metrics PDF Generator
-# Full workflow: build → PDF → Slack → Email
-# ============================================================
-
-name: 🧾 Metrics PDF Report
+name: "📊 TPS Business PDF + Slack"
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 8 * * 1" # Chaque lundi à 08:10 UTC
+    - cron: "0 8 * * 1"  # Chaque lundi 8h UTC
+
+permissions:
+  contents: write
 
 jobs:
-  metrics-pdf:
-    name: 📊 Generate Weekly Metrics PDF
+  build-report:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------------------------------------
-      # 1️⃣ Checkout repo
-      # --------------------------------------------------------
-      - name: 📦 Checkout repository
+      - name: "Checkout repo"
         uses: actions/checkout@v4
 
-      # --------------------------------------------------------
-      # 2️⃣ Build HTML summary
-      # --------------------------------------------------------
-      - name: 🧠 Build HTML summary
-        run: |
-          set -e
-          mkdir -p reports
-          echo "<h2>THE PET SOCIETY — Weekly Metrics Summary</h2>" > reports/summary.html
-          echo "<p>Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")</p>" >> reports/summary.html
-          echo "<ul>" >> reports/summary.html
-
-          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
-            echo "<li>✅ Sentry DSN — Present</li>" >> reports/summary.html
-          else
-            echo "<li>❌ Sentry DSN — Missing</li>" >> reports/summary.html
-          fi
-
-          CF_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}")
-          if [ "$CF_CODE" = "200" ]; then
-            echo "<li>✅ Cloudflare Token — Valid</li>" >> reports/summary.html
-          else
-            echo "<li>❌ Cloudflare Token — Invalid ($CF_CODE)</li>" >> reports/summary.html
-          fi
-
-          AH_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://api.ahrefs.com/v3/site-explorer/domain-rating?target=thepetsociety.paris&mode=domain" \
-            -H "Authorization: Bearer ${{ secrets.AHREFS_API_KEY }}")
-          if [ "$AH_CODE" = "200" ]; then
-            echo "<li>✅ Ahrefs API — Connected</li>" >> reports/summary.html
-          else
-            echo "<li>❌ Ahrefs API — Failed ($AH_CODE)</li>" >> reports/summary.html
-          fi
-
-          if [ -n "${{ secrets.GA4_REFRESH_TOKEN }}" ]; then
-            echo "<li>✅ GA4 Refresh Token — Present</li>" >> reports/summary.html
-          else
-            echo "<li>❌ GA4 Refresh Token — Missing</li>" >> reports/summary.html
-          fi
-
-          echo "</ul>" >> reports/summary.html
-          echo "<p style='font-style:italic'>End of report — $(date)</p>" >> reports/summary.html
-
-      # --------------------------------------------------------
-      # 3️⃣ Install wkhtmltopdf
-      # --------------------------------------------------------
-      - name: 🧱 Install wkhtmltopdf
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wkhtmltopdf
-
-      # --------------------------------------------------------
-      # 4️⃣ Generate PDF
-      # --------------------------------------------------------
-      - name: 🧾 Generate PDF report
-        run: |
-          wkhtmltopdf reports/summary.html reports/metrics-report.pdf
-          ls -lh reports/metrics-report.pdf
-          echo "✅ PDF generated successfully"
-
-      # --------------------------------------------------------
-      # 5️⃣ Upload artifact
-      # --------------------------------------------------------
-      - name: 💾 Upload artifact (PDF)
-        uses: actions/upload-artifact@v4
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
         with:
-          name: metrics-weekly-report
-          path: reports/metrics-report.pdf
-          if-no-files-found: error
-          retention-days: 14
+          python-version: "3.11"
 
-      # --------------------------------------------------------
-      # 6️⃣ Slack upload (bot)
-      # --------------------------------------------------------
-      - name: 💬 Upload PDF to Slack (bot upload)
+      - name: "Install deps"
         run: |
-          if [ -n "${{ secrets.SLACK_BOT_TOKEN }}" ] && [ -n "${{ secrets.SLACK_CHANNEL_ID }}" ]; then
-            echo "📤 Uploading metrics PDF to Slack..."
-            curl -f -s -S -X POST \
-              -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
-              -F "channels=${{ secrets.SLACK_CHANNEL_ID }}" \
-              -F "initial_comment=🧾 *THE PET SOCIETY — Weekly Metrics PDF*\n✅ PDF uploaded successfully." \
-              -F "file=@reports/metrics-report.pdf" \
-              https://slack.com/api/files.upload \
-              && echo "✅ PDF uploaded to Slack" \
-              || echo "⚠️ Slack upload failed"
-          else
-            echo "ℹ️ Slack bot credentials not configured, skipping upload."
-          fi
+          python -m pip install --upgrade pip
+          pip install matplotlib pandas reportlab
 
-      # --------------------------------------------------------
-      # 7️⃣ Slack fallback (webhook)
-      # --------------------------------------------------------
-      - name: 💬 Slack Fallback via Webhook
+      - name: "Ensure report_data directory"
+        run: mkdir -p report_data
+
+      # ICI tu peux insérer plus tard des steps pour :
+      # - exporter shopify_metrics.csv
+      # - exporter ga4_metrics.csv
+      # - exporter meta_metrics.csv
+      # - etc.
+
+      - name: "Generate FULL Business Report"
         run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ] && \
-             { [ -z "${{ secrets.SLACK_BOT_TOKEN }}" ] || [ -z "${{ secrets.SLACK_CHANNEL_ID }}" ]; }; then
-            echo "🪄 Sending fallback Slack message..."
-            curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\":page_facing_up: Weekly Metrics PDF generated — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Download here>\"}" \
-              "${{ secrets.SLACK_WEBHOOK_URL }}"
-          else
-            echo "ℹ️ Webhook fallback not applicable."
-          fi
+          python scripts/generate_tps_business_report.py \
+            report_data/metrics_report.csv \
+            reports/TPS-Executive-Business-Report-$(date -u +%Y%m%d).pdf \
+            full
 
-      # --------------------------------------------------------
-      # 8️⃣ Email report (optional)
-      # --------------------------------------------------------
-      - name: 📧 Email PDF (optional via sendmail)
+      - name: "Generate Executive OnePager"
         run: |
-          if [ -n "${{ secrets.SMTP_USER }}" ] && [ -n "${{ secrets.EMAIL_RECIPIENT }}" ]; then
-            if ! command -v sendmail >/dev/null 2>&1; then
-              echo "⚠️ sendmail not available, skipping email."
-              exit 0
-            fi
+          python scripts/generate_tps_business_report.py \
+            report_data/metrics_report.csv \
+            reports/TPS-Executive-OnePager-$(date -u +%Y%m%d).pdf \
+            executive
 
-            latest_file="reports/metrics-report.pdf"
-            BOUNDARY="MIMEBOUNDARY-$(date +%s)"
-
-            {
-              echo "Subject: THE PET SOCIETY — Weekly Metrics PDF"
-              echo "From: ${{ secrets.SMTP_USER }}"
-              echo "To: ${{ secrets.EMAIL_RECIPIENT }}"
-              echo "MIME-Version: 1.0"
-              echo "Content-Type: multipart/mixed; boundary=\"$BOUNDARY\""
-              echo
-              echo "--$BOUNDARY"
-              echo "Content-Type: text/plain; charset=UTF-8"
-              echo
-              echo "Bonjour,"
-              echo
-              echo "Veuillez trouver ci-joint le rapport hebdomadaire THE PET SOCIETY."
-              echo
-              echo "--$BOUNDARY"
-              echo "Content-Type: application/pdf; name=\"metrics-report.pdf\""
-              echo "Content-Transfer-Encoding: base64"
-              echo "Content-Disposition: attachment; filename=\"metrics-report.pdf\""
-              echo
-              base64 -w 0 "$latest_file"
-              echo
-              echo "--$BOUNDARY--"
-            } | sendmail -t
-
-            echo "✅ Email sent to ${{ secrets.EMAIL_RECIPIENT }}"
-          else
-            echo "ℹ️ Email configuration missing, skipping send."
-          fi
-
-      # --------------------------------------------------------
-      # 9️⃣ Slack summary confirmation
-      # --------------------------------------------------------
-      - name: ✅ Slack Summary Message
+      - name: "Commit & push reports"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            echo "🧩 Sending summary to Slack..."
-            curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\":white_check_mark: *Metrics PDF completed successfully!*\n📎 <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run details>\"}" \
-              "${{ secrets.SLACK_WEBHOOK_URL }}" || true
-          else
-            echo "ℹ️ No Slack webhook configured, summary skipped."
+          git config user.name "tps-bot"
+          git config user.email "bot@thepetsociety.paris"
+          git add reports/*.pdf || true
+          if git diff --cached --quiet; then
+            echo "No new reports to commit."
+            exit 0
           fi
+          git commit -m "chore: add weekly TPS business reports"
+          git push origin DEV
+
+      - name: "Notify Slack #reports"
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+        run: |
+          REPORT_DATE=$(date -u +%Y-%m-%d)
+          TEXT="*TPS Weekly Business Reports — ${REPORT_DATE}*\n\
+          - Full report: \`reports/TPS-Executive-Business-Report-${REPORT_DATE//-/}.pdf\`\n\
+          - Executive one-pager: \`reports/TPS-Executive-OnePager-${REPORT_DATE//-/}.pdf\`"
+
+          payload=$(jq -n --arg text "$TEXT" '{text:$text}')
+          curl -s -X POST -H "Content-type: application/json" \
+            --data "$payload" "$SLACK_WEBHOOK_URL" || echo "Slack webhook failed"
