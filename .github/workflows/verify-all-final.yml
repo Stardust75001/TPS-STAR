@@ -26,6 +26,9 @@ jobs:
       pdf_result: ${{ steps.pdf_step.outcome }}
 
     steps:
+      # -------------------------------
+      # 🚀 Trigger des 3 workflows
+      # -------------------------------
       - name: "🚀 Trigger metrics.yml"
         id: verify_step
         uses: benc-uk/workflow-dispatch@v1
@@ -61,14 +64,10 @@ jobs:
       # ☁️ Cloudflare Token Verification
       # -------------------------------
       - name: "☁️ Verify Cloudflare Token"
-        id: cf_check
         run: |
           echo "🔍 Checking Cloudflare token validity..."
           if [ -z "${{ secrets.CLOUDFLARE_TOKEN }}" ]; then
-            echo "❌ CLOUDFLARE_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > cloudflare_report.csv
-            echo "CLOUDFLARE_TOKEN,MISSING" >> cloudflare_report.csv
-            cat cloudflare_report.csv >> metrics_report.csv
+            echo "CLOUDFLARE_TOKEN,MISSING" >> metrics_report.csv
             exit 0
           fi
 
@@ -76,29 +75,22 @@ jobs:
             https://api.cloudflare.com/client/v4/user/tokens/verify)
           VALID=$(echo "$RESPONSE" | jq -r '.success')
 
-          echo "Service,Status" > cloudflare_report.csv
           if [ "$VALID" = "true" ]; then
-            echo "CLOUDFLARE_TOKEN,OK" >> cloudflare_report.csv
+            echo "CLOUDFLARE_TOKEN,OK" >> metrics_report.csv
             echo "✅ Cloudflare token valid."
           else
-            echo "CLOUDFLARE_TOKEN,INVALID" >> cloudflare_report.csv
+            echo "CLOUDFLARE_TOKEN,INVALID" >> metrics_report.csv
             echo "⚠️ Cloudflare token invalid or expired."
           fi
-
-          cat cloudflare_report.csv >> metrics_report.csv
 
       # -------------------------------
       # 🔗 Meta Token Verification
       # -------------------------------
       - name: "🔗 Verify Meta Token"
-        id: meta_check
         run: |
           echo "🔍 Checking Meta Token validity..."
           if [ -z "${{ secrets.META_TOKEN }}" ]; then
-            echo "❌ META_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > meta_report.csv
-            echo "META_TOKEN,MISSING" >> meta_report.csv
-            cat meta_report.csv >> metrics_report.csv
+            echo "META_TOKEN,MISSING" >> metrics_report.csv
             exit 0
           fi
 
@@ -106,16 +98,312 @@ jobs:
             "https://graph.facebook.com/debug_token?input_token=${{ secrets.META_TOKEN }}&access_token=${{ secrets.META_TOKEN }}")
           VALID=$(echo "$RESPONSE" | jq -r '.data.is_valid')
 
-          echo "Service,Status" > meta_report.csv
           if [ "$VALID" = "true" ]; then
-            echo "META_TOKEN,OK" >> meta_report.csv
+            echo "META_TOKEN,OK" >> metrics_report.csv
             echo "✅ Meta Token is valid."
           else
-            echo "META_TOKEN,INVALID" >> meta_report.csv
+            echo "META_TOKEN,INVALID" >> metrics_report.csv
             echo "⚠️ Meta Token invalid or expired."
           fi
 
-          cat meta_report.csv >> metrics_report.csv
+      # -------------------------------
+      # 🟠 Sentry DSN Verification
+      # -------------------------------
+      - name: "🟠 Verify Sentry DSN"
+        run: |
+          echo "🔍 Checking Sentry DSN..."
+          if [ -z "${{ secrets.SENTRY_DSN }}" ]; then
+            echo "SENTRY_DSN,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          if [[ "${{ secrets.SENTRY_DSN }}" =~ ^https:\/\/[0-9a-f]+@[a-zA-Z0-9.-]+\/[0-9]+$ ]]; then
+            echo "SENTRY_DSN,OK" >> metrics_report.csv
+            echo "✅ Sentry DSN format valid."
+          else
+            echo "SENTRY_DSN,INVALID" >> metrics_report.csv
+            echo "⚠️ Sentry DSN format invalid."
+          fi
+
+      # -------------------------------
+      # 🟠 Google Analytics (GA4 Token)
+      # -------------------------------
+      - name: "🟠 Verify Google Analytics (GA4 Token)"
+        run: |
+          echo "🔍 Checking Google Analytics GA4 Token..."
+          if [ -z "${{ secrets.GA4_TOKEN }}" ]; then
+            echo "GA4_TOKEN,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://www.google-analytics.com/mp/collect?measurement_id=G-XXXXXXX&api_secret=${{ secrets.GA4_TOKEN }}" \
+            -d '{}')
+
+          if [ "$RESPONSE" = "400" ] || [ "$RESPONSE" = "200" ]; then
+            echo "GA4_TOKEN,OK" >> metrics_report.csv
+            echo "✅ GA4 Token present (HTTP $RESPONSE)."
+          else
+            echo "GA4_TOKEN,INVALID" >> metrics_report.csv
+            echo "⚠️ GA4 Token invalid or not accepted (HTTP $RESPONSE)."
+          fi
+
+      # -------------------------------
+      # 🟠 Ahrefs API Verification
+      # -------------------------------
+      - name: "🟠 Verify Ahrefs API"
+        run: |
+          echo "🔍 Checking Ahrefs API key..."
+          if [ -z "${{ secrets.AHREFS_API_KEY }}" ]; then
+            echo "AHREFS_API_KEY,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          RESPONSE=$(curl -s \
+            "https://apiv2.ahrefs.com?token=${{ secrets.AHREFS_API_KEY }}&from=subscription&mode=domain")
+          STATUS=$(echo "$RESPONSE" | jq -r '.subscription_id // empty')
+
+          if [ -n "$STATUS" ]; then
+            echo "AHREFS_API_KEY,OK" >> metrics_report.csv
+            echo "✅ Ahrefs API key valid."
+          else
+            echo "AHREFS_API_KEY,INVALID" >> metrics_report.csv
+            echo "⚠️ Ahrefs API key invalid or request failed."
+          fi
+
+      # -------------------------------
+      # 🟠 Google Tag Manager Verification
+      # -------------------------------
+      - name: "🟠 Verify Google Tag Manager ID"
+        run: |
+          echo "🔍 Checking Google Tag Manager ID..."
+          if [ -z "${{ secrets.GTM_ID }}" ]; then
+            echo "GTM_ID,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          if [[ "${{ secrets.GTM_ID }}" =~ ^GTM-[A-Z0-9]+$ ]]; then
+            echo "GTM_ID,OK" >> metrics_report.csv
+            echo "✅ GTM ID format valid."
+          else
+            echo "GTM_ID,INVALID" >> metrics_report.csv
+            echo "⚠️ GTM ID format invalid."
+          fi
+
+      # -------------------------------
+      # 🟠 Zik Analytics Verification
+      # -------------------------------
+      - name: "🟠 Verify Zik Analytics API Key"
+        run: |
+          echo "🔍 Checking Zik Analytics API Key..."
+          if [ -z "${{ secrets.ZIK_API_KEY }}" ]; then
+            echo "ZIK_API_KEY,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          if [[ "${{ secrets.ZIK_API_KEY }}" =~ ^[a-zA-Z0-9]{32,}$ ]]; then
+            echo "ZIK_API_KEY,OK" >> metrics_report.csv
+            echo "✅ Zik API Key format valid."
+          else
+            echo "ZIK_API_KEY,INVALID" >> metrics_report.csv
+            echo "⚠️ Zik API Key format invalid."
+          fi
+
+      # -------------------------------
+      # 🟠 Google Search Console Verification
+      # -------------------------------
+      - name: "🟠 Verify Google Search Console (credentials + property)"
+        run: |
+          echo "🔍 Checking Google Search Console credentials and property..."
+          if [ -z "${{ secrets.GSC_CREDENTIALS }}" ]; then
+            echo "GSC_CREDENTIALS,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+          if [ -z "${{ secrets.GSC_PROPERTY }}" ]; then
+            echo "GSC_PROPERTY,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          echo "${{ secrets.GSC_CREDENTIALS }}" > gsc_creds.json
+          ACCESS_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d @gsc_creds.json \
+            "https://oauth2.googleapis.com/token" | jq -r '.access_token // empty')
+
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "GSC_CREDENTIALS,INVALID" >> metrics_report.csv
+            echo "⚠️ GSC credentials invalid."
+            exit 0
+          fi
+
+          RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://searchconsole.googleapis.com/webmasters/v3/sites/${{ secrets.GSC_PROPERTY }}")
+          SITE_URL=$(echo "$RESPONSE" | jq -r '.siteUrl // empty')
+
+          if [ -n "$SITE_URL" ]; then
+            echo "GSC_CREDENTIALS,OK" >> metrics_report.csv
+            echo "GSC_PROPERTY,OK" >> metrics_report.csv
+            echo "✅ GSC credentials and property valid."
+          else
+            echo "GSC_PROPERTY,INVALID" >> metrics_report.csv
+            echo "⚠️ GSC property not found or invalid."
+          fi
+
+      # -------------------------------
+      # 🟠 Slack Webhook + Bot Token + Channel
+      # -------------------------------
+      - name: "🟠 Verify Slack Webhook + Bot Token + Channel"
+        run: |
+          echo "🔍 Checking Slack Webhook, Bot Token and Channel..."
+
+          if [ -z "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "SLACK_WEBHOOK_URL,MISSING" >> metrics_report.csv
+          else
+            RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" \
+              --data '{"text":"Test from GitHub Actions"}' "${{ secrets.SLACK_WEBHOOK_URL }}")
+            if [ "$RESP" = "200" ]; then
+              echo "SLACK_WEBHOOK_URL,OK" >> metrics_report.csv
+              echo "✅ Slack webhook works."
+            else
+              echo "SLACK_WEBHOOK_URL,INVALID" >> metrics_report.csv
+              echo "⚠️ Slack webhook failed (HTTP $RESP)."
+            fi
+          fi
+
+          if [ -z "${{ secrets.SLACK_BOT_TOKEN }}" ]; then
+            echo "SLACK_BOT_TOKEN,MISSING" >> metrics_report.csv
+          else
+            USER=$(curl -s -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+              https://slack.com/api/auth.test | jq -r '.user_id // empty')
+            if [ -n "$USER" ]; then
+              echo "SLACK_BOT_TOKEN,OK" >> metrics_report.csv
+              echo "✅ Slack bot token valid."
+            else
+              echo "SLACK_BOT_TOKEN,INVALID" >> metrics_report.csv
+              echo "⚠️ Slack bot token invalid."
+            fi
+          fi
+
+          if [ -z "${{ secrets.SLACK_CHANNEL }}" ]; then
+            echo "SLACK_CHANNEL,MISSING" >> metrics_report.csv
+          else
+            echo "SLACK_CHANNEL,OK" >> metrics_report.csv
+            echo "✅ Slack channel set."
+          fi
+
+      # -------------------------------
+      # 🟠 SMTP Verification (host, port, user, pass, to)
+      # -------------------------------
+      - name: "🟠 Verify SMTP (host, port, user, pass, to)"
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_TO:   ${{ secrets.SMTP_TO }}
+        run: |
+          echo "🔍 Checking SMTP configuration..."
+          STATUS=0
+          for VAR in SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS SMTP_TO; do
+            if [ -z "${!VAR}" ]; then
+              echo "$VAR,MISSING" >> metrics_report.csv
+              echo "❌ $VAR missing in GitHub secrets/env"
+              STATUS=1
+            else
+              echo "$VAR,OK" >> metrics_report.csv
+            fi
+          done
+
+          if [ $STATUS -eq 0 ]; then
+            if timeout 5 bash -c "</dev/tcp/${SMTP_HOST}/${SMTP_PORT}" 2>/dev/null; then
+              echo "SMTP_CONNECT,OK" >> metrics_report.csv
+              echo "✅ SMTP host/port reachable."
+            else
+              echo "SMTP_CONNECT,ERROR" >> metrics_report.csv
+              echo "⚠️ SMTP host/port not reachable."
+            fi
+          fi
+
+      # -------------------------------
+      # 🟠 Shopify API Key Verification
+      # -------------------------------
+      - name: "🟠 Verify Shopify API Key"
+        run: |
+          echo "🔍 Checking Shopify API Key..."
+          if [ -z "${{ secrets.SHOPIFY_API_KEY }}" ]; then
+            echo "SHOPIFY_API_KEY,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          if [[ "${{ secrets.SHOPIFY_API_KEY }}" =~ ^[a-zA-Z0-9]{32}$ ]]; then
+            echo "SHOPIFY_API_KEY,OK" >> metrics_report.csv
+            echo "✅ Shopify API Key format valid."
+          else
+            echo "SHOPIFY_API_KEY,INVALID" >> metrics_report.csv
+            echo "⚠️ Shopify API Key format invalid."
+          fi
+
+      # -------------------------------
+      # 🟠 Amplitude API Key Verification
+      # -------------------------------
+      - name: "🟠 Verify Amplitude API Key"
+        run: |
+          echo "🔍 Checking Amplitude API Key..."
+          if [ -z "${{ secrets.AMPLITUDE_API_KEY }}" ]; then
+            echo "AMPLITUDE_API_KEY,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://api2.amplitude.com/identify" \
+            -H "Content-Type: application/json" \
+            -d "{\"api_key\":\"${{ secrets.AMPLITUDE_API_KEY }}\",\"identification\":[{\"user_id\":\"test\"}]}")
+
+          if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "400" ]; then
+            echo "AMPLITUDE_API_KEY,OK" >> metrics_report.csv
+            echo "✅ Amplitude API Key present (HTTP $RESPONSE)."
+          else
+            echo "AMPLITUDE_API_KEY,INVALID" >> metrics_report.csv
+            echo "⚠️ Amplitude API Key invalid or not accepted (HTTP $RESPONSE)."
+          fi
+
+      # -------------------------------
+      # 🟠 Email Recipient Verification
+      # -------------------------------
+      - name: "🟠 Verify Email Recipient"
+        run: |
+          echo "🔍 Checking Email Recipient..."
+          if [ -z "${{ secrets.EMAIL_RECIPIENT }}" ]; then
+            echo "EMAIL_RECIPIENT,MISSING" >> metrics_report.csv
+            exit 0
+          fi
+
+          if [[ "${{ secrets.EMAIL_RECIPIENT }}" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            echo "EMAIL_RECIPIENT,OK" >> metrics_report.csv
+            echo "✅ Email recipient format valid."
+          else
+            echo "EMAIL_RECIPIENT,INVALID" >> metrics_report.csv
+            echo "⚠️ Email recipient format invalid."
+          fi
+
+      # -------------------------------
+      # 📊 Génération HTML + upload artifacts
+      # -------------------------------
+      - name: "📊 Generate HTML summary for dashboard"
+        run: |
+          echo '<table><tr><th>Service</th><th>Status</th></tr>' > metrics_report.html
+          tail -n +2 metrics_report.csv | while IFS=, read service status; do
+            color="red"
+            [ "$status" = "OK" ] && color="green"
+            printf '<tr><td>%s</td><td style="color:%s;">%s</td></tr>\n' "$service" "$color" "$status" >> metrics_report.html
+          done
+          echo '</table>' >> metrics_report.html
+
+      - name: "📦 Upload metrics report artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "metrics-report"
+          path: |
+            metrics_report.csv
+            metrics_report.html
 
   notify:
     name: "💬 TPS Slack Summary (Dark or Light)"
@@ -151,7 +439,7 @@ jobs:
             TEXT="*TPS-STAR — Workflow Chain Summary (Light)*\n"
           else
             COLOR="#1E1E1E"
-            TITLE="🐾 *THE PET SOCIETY — Dark Metrics Chain Summary*"
+            TITLE="🐾 *THE PET SOCIETY — Dark Metrics Summary*"
             TEXT="*THE PET SOCIETY — Workflow Chain Summary (Dark)*\n"
           fi
 
