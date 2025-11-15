@@ -1,9 +1,10 @@
-name: 🧠 Verify + Resume + PDF + Slack (Dual Mode)
+--- 
+name: "🧠 Verify + Resume + PDF + Slack (Dual Mode)"
 
 on:
   workflow_dispatch:
   push:
-    branches: [DEV]
+    branches: [ DEV ]
   schedule:
     - cron: "0 8 * * 1" # Chaque lundi à 8h UTC
 
@@ -11,16 +12,21 @@ permissions:
   contents: read
   actions: write
 
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}
+
 jobs:
   chain:
-    name: ⚙️ TPS Metrics Chain
+    name: "⚙️ TPS Metrics Chain"
     runs-on: ubuntu-latest
     outputs:
       verify_result: ${{ steps.verify_step.outcome }}
       resume_result: ${{ steps.resume_step.outcome }}
       pdf_result: ${{ steps.pdf_step.outcome }}
+
     steps:
-      - name: 🚀 Trigger metrics.yml
+      - name: "🚀 Trigger metrics.yml"
         id: verify_step
         uses: benc-uk/workflow-dispatch@v1
         with:
@@ -29,7 +35,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🧾 Trigger resume-metrics.yml
+      - name: "🧾 Trigger resume-metrics.yml"
         id: resume_step
         uses: benc-uk/workflow-dispatch@v1
         with:
@@ -38,7 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📊 Trigger metrics-pdf.yml
+      - name: "📊 Trigger metrics-pdf.yml"
         id: pdf_step
         uses: benc-uk/workflow-dispatch@v1
         with:
@@ -50,22 +56,24 @@ jobs:
       # -------------------------------
       # ☁️ Cloudflare Token Verification
       # -------------------------------
-      - name: ☁️ Verify Cloudflare Token
+      - name: "☁️ Verify Cloudflare Token"
         id: cf_check
         run: |
           echo "🔍 Checking Cloudflare token validity..."
+          echo "Service,Status" > cloudflare_report.csv
+
           if [ -z "${{ secrets.CLOUDFLARE_TOKEN }}" ]; then
             echo "❌ CLOUDFLARE_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > cloudflare_report.csv
             echo "CLOUDFLARE_TOKEN,MISSING" >> cloudflare_report.csv
             exit 0
           fi
 
-          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" \
+          RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" \
             https://api.cloudflare.com/client/v4/user/tokens/verify)
-          VALID=$(echo "$RESPONSE" | jq -r '.success')
 
-          echo "Service,Status" > cloudflare_report.csv
+          VALID=$(echo "$RESPONSE" | jq -r '.success // "false"')
+
           if [ "$VALID" = "true" ]; then
             echo "CLOUDFLARE_TOKEN,OK" >> cloudflare_report.csv
             echo "✅ Cloudflare token valid."
@@ -74,26 +82,33 @@ jobs:
             echo "⚠️ Cloudflare token invalid or expired."
           fi
 
-          cat cloudflare_report.csv >> metrics_report.csv
+          # Si un metrics_report.csv existe déjà, on le complète
+          if [ -f metrics_report.csv ]; then
+            tail -n +2 cloudflare_report.csv >> metrics_report.csv
+          else
+            cp cloudflare_report.csv metrics_report.csv
+          fi
 
       # -------------------------------
       # 🔗 Meta Token Verification
       # -------------------------------
-      - name: 🔗 Verify Meta Token
+      - name: "🔗 Verify Meta Token"
         id: meta_check
         run: |
           echo "🔍 Checking Meta Token validity..."
+          echo "Service,Status" > meta_report.csv
+
           if [ -z "${{ secrets.META_TOKEN }}" ]; then
             echo "❌ META_TOKEN missing in GitHub secrets"
-            echo "Service,Status" > meta_report.csv
             echo "META_TOKEN,MISSING" >> meta_report.csv
             exit 0
           fi
 
-          RESPONSE=$(curl -s -X GET "https://graph.facebook.com/debug_token?input_token=${{ secrets.META_TOKEN }}&access_token=${{ secrets.META_TOKEN }}")
-          VALID=$(echo "$RESPONSE" | jq -r '.data.is_valid')
+          RESPONSE=$(curl -s -X GET \
+            "https://graph.facebook.com/debug_token?input_token=${{ secrets.META_TOKEN }}&access_token=${{ secrets.META_TOKEN }}")
 
-          echo "Service,Status" > meta_report.csv
+          VALID=$(echo "$RESPONSE" | jq -r '.data.is_valid // "false"')
+
           if [ "$VALID" = "true" ]; then
             echo "META_TOKEN,OK" >> meta_report.csv
             echo "✅ Meta Token is valid."
@@ -102,28 +117,37 @@ jobs:
             echo "⚠️ Meta Token invalid or expired."
           fi
 
-          cat meta_report.csv >> metrics_report.csv
+          # Merge dans metrics_report.csv (en gardant un seul header)
+          if [ -f metrics_report.csv ]; then
+            tail -n +2 meta_report.csv >> metrics_report.csv
+          else
+            cp meta_report.csv metrics_report.csv
+          fi
 
   notify:
-    name: 💬 TPS Slack Summary (Dark or Light)
+    name: "💬 TPS Slack Summary (Dark or Light)"
     needs: chain
     if: always()
     runs-on: ubuntu-latest
+
     steps:
-      - name: 🐾 Send Slack summary (dual mode)
+      - name: "🐾 Send Slack summary (dual mode)"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SLACK_MODE: ${{ vars.SLACK_MODE || 'dark' }}
+          SLACK_MODE_VAR: ${{ vars.SLACK_MODE }}
         run: |
+          # Mode Slack : var, sinon "dark" par défaut
+          SLACK_MODE="${SLACK_MODE_VAR:-dark}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
           echo "📡 Sending Slack summary in mode: $SLACK_MODE"
 
           emoji() {
             case "$1" in
-              success) echo "🟢";;
-              failure) echo "🔴";;
-              cancelled) echo "⚪";;
-              *) echo "⚙️";;
+              success)   echo "🟢" ;;
+              failure)   echo "🔴" ;;
+              cancelled) echo "⚪" ;;
+              *)         echo "⚙️" ;;
             esac
           }
 
@@ -133,27 +157,21 @@ jobs:
 
           if [ "$SLACK_MODE" = "light" ]; then
             COLOR="#EAF2FB"
-            TITLE="🪶 *TPS-STAR — Light Mode Metrics Summary*"
+            TITLE="🪶 TPS-STAR — Light Mode Metrics Summary"
             TEXT="*TPS-STAR — Workflow Chain Summary (Light)*\n"
-            TEXT+="\`\`\`\n"
-            TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
-            TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
-            TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
-            TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
-            TEXT+="🔗 ${RUN_URL}\n"
-            TEXT+="\`\`\`\n"
           else
             COLOR="#1E1E1E"
-            TITLE="🐾 *THE PET SOCIETY — Dark Metrics Chain Summary*"
+            TITLE="🐾 THE PET SOCIETY — Dark Metrics Chain Summary"
             TEXT="*THE PET SOCIETY — Workflow Chain Summary (Dark)*\n"
-            TEXT+="\`\`\`\n"
-            TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
-            TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
-            TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
-            TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
-            TEXT+="🔗 ${RUN_URL}\n"
-            TEXT+="\`\`\`\n"
           fi
+
+          TEXT+="\`\`\`\n"
+          TEXT+="🧠 metrics.yml ............. ${V}  ${{ needs.chain.outputs.verify_result }}\n"
+          TEXT+="📜 resume-metrics.yml ..... ${R}  ${{ needs.chain.outputs.resume_result }}\n"
+          TEXT+="📊 metrics-pdf.yml ........ ${P}  ${{ needs.chain.outputs.pdf_result }}\n"
+          TEXT+="🕒 $(date -u +'%Y-%m-%d %H:%M:%S UTC')\n"
+          TEXT+="🔗 ${RUN_URL}\n"
+          TEXT+="\`\`\`\n"
 
           PAYLOAD=$(jq -n \
             --arg color "$COLOR" \
@@ -169,13 +187,15 @@ jobs:
             && echo "✅ Slack summary sent" \
             || echo "⚠️ Slack webhook failed."
 
-      - name: 📧 Email fallback (if Slack fails)
+      - name: "📧 Email fallback (if Slack fails)"
         if: failure()
         env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_USER:       ${{ secrets.SMTP_USER }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
         run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo "📨 Sending fallback email..."
+
           {
             echo "Subject: [TPS] Metrics Chain Summary — Failure"
             echo "From: ${SMTP_USER}"
@@ -189,8 +209,4 @@ jobs:
             echo "resume-metrics.yml ...... ${{ needs.chain.outputs.resume_result }}"
             echo "metrics-pdf.yml ......... ${{ needs.chain.outputs.pdf_result }}"
             echo
-            echo "Details: ${RUN_URL}"
-            echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          } | sendmail -t
-
-          echo "✅ Email fallback executed"
+           
