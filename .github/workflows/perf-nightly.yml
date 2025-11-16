@@ -1,0 +1,73 @@
+name: 🚀 Nightly Performance Audit (Lighthouse + GTmetrix)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # Tous les jours à 03h du matin
+  workflow_dispatch:
+
+jobs:
+  performance:
+    name: 📊 Analyse Performance (LHCI + GTmetrix)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟡 Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Lighthouse CI
+      - name: 📦 Install Lighthouse CI
+        run: npm install -g @lhci/cli
+
+      - name: 🚀 Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: |
+          lhci autorun \
+            --collect.url=https://www.thepetsociety.paris \
+            --upload.target=temporary-public-storage \
+            --githubAppToken=$LHCI_GITHUB_APP_TOKEN
+
+      # GTmetrix
+      - name: 📡 Run GTmetrix API Test
+        id: gtm
+        env:
+          GTMETRIX_API_KEY: ${{ secrets.GTMETRIX_API_KEY }}
+        run: |
+          echo "Requesting GTMetrix test..."
+          RESPONSE=$(curl -s -u "$GTMETRIX_API_KEY:" \
+             -X POST "https://gtmetrix.com/api/3.0/tests" \
+             -d "url=https://www.thepetsociety.paris")
+
+          TEST_ID=$(echo "$RESPONSE" | jq -r '.test_id')
+          echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
+
+          echo "Waiting for result..."
+          for i in {1..20}; do
+            STATUS=$(curl -s -u "$GTMETRIX_API_KEY:" \
+              "https://gtmetrix.com/api/3.0/tests/$TEST_ID" | jq -r '.state')
+
+            echo "State: $STATUS"
+            if [ "$STATUS" = "completed" ]; then break; fi
+            sleep 15
+          done
+
+          curl -s -u "$GTMETRIX_API_KEY:" \
+            "https://gtmetrix.com/api/3.0/tests/$TEST_ID" \
+            > gtm-result.json
+
+      - name: 📎 Upload GTmetrix report
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTmetrix-report
+          path: gtm-result.json
+
+      - name: 📎 Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: .lighthouseci
