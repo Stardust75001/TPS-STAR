@@ -1,0 +1,31 @@
+name: 📊 Daily KPI Dashboard → Slack
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # Tous les jours à 06:00 Paris
+  workflow_dispatch:
+
+jobs:
+  send_report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate Daily KPI (placeholder)
+        run: |
+          echo "TPS Daily KPI Report" > report.txt
+          echo "🛒 Sales: N/A" >> report.txt
+          echo "📦 Orders: N/A" >> report.txt
+          echo "👤 Users: N/A" >> report.txt
+          echo "⚡ Performance: N/A" >> report.txt
+
+      - name: Send KPI to Slack
+        run: |
+          WEBHOOK="${{ secrets.SLACK_WEBHOOK_URL }}"
+          MESSAGE=$(cat report.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"📊 *TPS — Daily KPI Dashboard*\\n\\n$MESSAGE\"}" \
+            "$WEBHOOK"
