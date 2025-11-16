@@ -4,7 +4,7 @@ set -e
 ############################################
 # 🔧 CONFIG
 ############################################
-SLACK_TOKEN="xoxb-9806075692612-9919552589798-edgfC3qpZPuT5wfnaoivHgKF"
+SLACK_TOKEN="${SLACK_TOKEN}"
 
 PDF_PATH="/Users/asc/Shopify/TPS STAR/PRODUCTS/STOCK - CATALOG MANAGEMENT/TPS_DASHBOARD_REPORT.pdf"
 PY_SCRIPT="/Users/asc/Shopify/TPS STAR/TPS-STAR-WORKTREE/tools/tps_generate_pdf.py"
