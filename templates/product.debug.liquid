@@ -35,8 +35,8 @@
     <div class="row">
       <div class="col-lg-6">
         {% if product.images.size > 0 %}
-          <img loading="lazy"
-            src="{{ product.featured_image | image_url: 'master' }}"
+          <img
+            src="{{ product.featured_image | img_url: 'master' }}"
             alt="{{ product.title }}"
             class="img-fluid rounded"
           >

@@ -1,0 +1,131 @@
+name: "📊 TPS — Weekly Business Report (Full Chain)"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"   # Tous les lundis à 08:00 UTC
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  weekly_report:
+    name: "🧠 Run Weekly Business Report"
+    runs-on: ubuntu-latest
+
+    steps:
+      # -------------------------
+      # Checkout
+      # -------------------------
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+
+      # -------------------------
+      # Setup Python
+      # -------------------------
+      - name: "🐍 Setup Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "📦 Install Python dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install matplotlib pandas reportlab google-auth google-auth-oauthlib google-analytics-data
+
+      # -------------------------
+      # Export Shopify Metrics
+      # -------------------------
+      - name: "🛒 Export Shopify Metrics"
+        run: |
+          python scripts/export_shopify_metrics.py \
+            --domain "${{ secrets.SHOPIFY_STORE_DOMAIN }}" \
+            --token "${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}" \
+            --outdir "report_data"
+
+      # -------------------------
+      # Export GA4 Metrics
+      # -------------------------
+      - name: "📈 Export GA4 Metrics"
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_CLIENT_ID: ${{ secrets.GA4_CLIENT_ID }}
+          GA4_CLIENT_SECRET: ${{ secrets.GA4_CLIENT_SECRET }}
+          GA4_REFRESH_TOKEN: ${{ secrets.GA4_REFRESH_TOKEN }}
+        run: |
+          python scripts/export_ga4_metrics.py \
+            --outdir "report_data"
+
+      # -------------------------
+      # Merge All Metrics
+      # -------------------------
+      - name: "🔗 Merge Shopify + GA4 Metrics"
+        run: |
+          python scripts/merge_all_metrics.py \
+            report_data/shopify_metrics.csv \
+            report_data/ga4_metrics.csv \
+            report_data/metrics_full_report.csv
+
+      # -------------------------
+      # Generate BUSINESS REPORT PDF
+      # -------------------------
+      - name: "📄 Generate Full Business Report (PDF)"
+        run: |
+          python scripts/generate_tps_business_report.py \
+            report_data/metrics_full_report.csv \
+            Weekly-Business-Report.pdf
+
+      # -------------------------
+      # Generate EXECUTIVE One-Pager
+      # -------------------------
+      - name: "🧾 Generate Executive One-Pager (PDF)"
+        run: |
+          python scripts/generate_tps_executive_onepager.py \
+            report_data/metrics_full_report.csv \
+            Weekly-Executive-OnePager.pdf
+
+      # -------------------------
+      # Upload PDFs as artifacts
+      # -------------------------
+      - name: "📤 Upload Final Reports"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "tps-weekly-reports"
+          path: |
+            Weekly-Business-Report.pdf
+            Weekly-Executive-OnePager.pdf
+
+      # -------------------------
+      # Slack Notification
+      # -------------------------
+      - name: "💬 Send Slack Notification"
+        if: success()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          REPORT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(jq -n \
+            --arg text "📊 *TPS Weekly Business Report generated successfully!*\n\n• Full PDF\n• Executive One-Pager\n\n🔗 $REPORT_URL" \
+            '{text: $text}')
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"
+
+      # -------------------------
+      # Slack - Failure fallback
+      # -------------------------
+      - name: "❗ Slack Failure Alert"
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          REPORT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(jq -n \
+            --arg text "❌ *TPS Weekly Report FAILED.*\nCheck logs.\n🔗 $REPORT_URL" \
+            '{text: $text}')
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"

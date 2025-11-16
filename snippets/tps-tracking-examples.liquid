@@ -47,7 +47,7 @@ USAGE :
      data-product-id="{{ product.id }}"
      data-position="{{ forloop.index }}"
      data-product-title="{{ product.title }}">
-    <img loading="lazy" src="{{ product.featured_image | image_url: '300x300' }}" alt="{{ product.title }}">
+    <img src="{{ product.featured_image | img_url: '300x300' }}" alt="{{ product.title }}">
     <h3 data-product-title>{{ product.title }}</h3>
     <span class="price">{{ product.price | money }}</span>
   </a>

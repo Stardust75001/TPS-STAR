@@ -61,10 +61,10 @@
 
     {% for block in section.blocks %}
       {% assign title = block.settings.title %}
-      {% assign image = block.settings.image | image_url: 'master' %}
+      {% assign image = block.settings.image | img_url: 'master' %}
       {% assign link = block.settings.link %}
       <a href="{{ link | prepend: base_url }}" class="animated-stories-link">
-        <img loading="lazy" src="{{ image }}" alt="{{ title }}">
+        <img src="{{ image }}" alt="{{ title }}">
         <div class="tooltip-bubble" role="tooltip">
           {{ title }}
         </div>

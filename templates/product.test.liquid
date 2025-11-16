@@ -43,8 +43,8 @@
       {% if product.images.size > 0 %}
         <div class="alert alert-success">
           <h4>Images trouvées :</h4>
-          <img loading="lazy"
-            src="{{ product.featured_image | image_url: '200x200' }}"
+          <img
+            src="{{ product.featured_image | img_url: '200x200' }}"
             alt="{{ product.title }}"
             class="img-thumbnail"
           >

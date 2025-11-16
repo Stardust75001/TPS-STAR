@@ -38,13 +38,35 @@
 >
   {% if section.settings.show_collection_img and collection.image != blank %}
     <header class="collection-header collection-header-img py-12 py-xl-14 mb-8 mb-lg-9 enter-view">
+      <!-- Image mobile -->
+      <img
+        class="collection-header-img img-mobile d-lg-none"
+        src="{{ collection.image.src | image_url: width: 960 }}"
+        alt="{{ collection.image.alt | escape }}"
+        loading="lazy"
+        style="display: block; margin: 0 auto; max-width: 100%; height: auto; object-fit: contain; opacity: {{ section.settings.img_opacity }};"
+      >
 
-      {% if collection.image %}
-        {{ collection.image | image_url: width: 1920 | image_tag: alt: collection.image.alt, class: "collection-header-img", loading: "lazy" }}
-      {% endif %}
-
+      <!-- Image desktop -->
+      <img
+        class="collection-header-img img-desktop d-none d-lg-block"
+        src="{{ collection.image.src | image_url: width: 1920 }}"
+        alt="{{ collection.image.alt | escape }}"
+        loading="lazy"
+        style="display: block; margin: 0 auto; max-width: 100%; height: auto; object-fit: contain; opacity: {{ section.settings.img_opacity }};"
+      >
+      <img
+        class="collection-header-img img-desktop d-none d-lg-block"
+        src="{{ collection.image.src | image_url: width: 1920 }}"
+        alt="{{ collection.image.alt | escape }}"
+        loading="lazy"
+        style="width: 100%; height: auto; object-fit: contain !important; opacity: {{ section.settings.img_opacity }};"
+      >
       {% if section.settings.img_blur > 0 %}
-        <div class="collection-header-img-blur" style="backdrop-filter: blur({{ section.settings.img_blur }}px);"></div>
+        <div
+          class="collection-header-img-blur"
+          style="backdrop-filter: blur({{ section.settings.img_blur }}px);"
+        ></div>
       {% endif %}
       <div class="container">
         {% if collection.metafields.global.ref_variant_id %}

@@ -9,8 +9,8 @@
         {% if product.images.size > 0 %}
           <div class="product-gallery">
             <div class="main-image">
-              <img loading="lazy"
-                src="{{ product.featured_image | image_url: 'master' }}"
+              <img
+                src="{{ product.featured_image | img_url: 'master' }}"
                 alt="{{ product.title }}"
                 class="img-fluid rounded"
               >
@@ -18,8 +18,8 @@
             {% if product.images.size > 1 %}
               <div class="thumbnail-images mt-3">
                 {% for image in product.images limit: 4 %}
-                  <img loading="lazy"
-                    src="{{ image | image_url: '150x150' }}"
+                  <img
+                    src="{{ image | img_url: '150x150' }}"
                     alt="{{ product.title }}"
                     class="img-thumbnail me-2"
                     style="width: 80px; height: 80px; object-fit: cover;"

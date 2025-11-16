@@ -1,0 +1,72 @@
+{
+  "exportFormatVersion": 2,
+  "containerVersion": {
+    "container": {
+      "publicId": "GTM-WD2W3MT8",
+      "containerId": "TPS-STAR-CONTAINER",
+      "name": "TPS GA4 PRO ECOMMERCE",
+      "usageContext": ["web"]
+    },
+    "tag": [
+      {
+        "name": "TPS - GA4 Worker Dispatch",
+        "type": "html",
+        "parameter": [
+          {
+            "key": "html",
+            "type": "template",
+            "value": "<script>\nwindow.TPS_GA4 = window.TPS_GA4 || {};\nwindow.TPS_GA4.endpoint = 'https://ga4-worker.thepetsociety.workers.dev';\nwindow.TPS_GA4.send = function(eventName, params) {\n  try {\n    params = params || {};\n    var url = new URL(window.TPS_GA4.endpoint);\n    url.searchParams.set('event', eventName);\n    for (var k in params) {\n      if (params[k] != null) url.searchParams.set(k, typeof params[k] === 'object' ? JSON.stringify(params[k]) : params[k]);\n    }\n    fetch(url.toString(), {method:'GET', mode:'no-cors'});\n  } catch (e) {\n    console.warn('TPS Worker error:', e);\n  }\n};\n</script>"
+          }
+        ],
+        "firingTriggerId": ["2147483647"]
+      },
+
+      {
+        "name": "TPS - GA4 Page View",
+        "type": "html",
+        "parameter": [
+          {
+            "key": "html",
+            "type": "template",
+            "value": "<script>\ndocument.addEventListener('DOMContentLoaded', function(){\n  window.TPS_GA4.send('page_view', {\n    title: document.title,\n    location: window.location.href\n  });\n});\n</script>"
+          }
+        ],
+        "firingTriggerId": ["2147483647"]
+      },
+
+      {
+        "name": "TPS - GA4 Add To Cart",
+        "type": "html",
+        "parameter": [
+          {
+            "key": "html",
+            "type": "template",
+            "value": "<script>\nwindow.dataLayer = window.dataLayer || [];\ndocument.addEventListener('click', function(e){\n  const btn = e.target.closest(\"button[name='add'],button.add-to-cart\");\n  if (!btn) return;\n  const form = btn.closest('form');\n  const variant = form?.querySelector(\"[name='id']\")?.value;\n  const qty = form?.querySelector(\"[name='quantity']\")?.value || 1;\n  window.TPS_GA4.send('add_to_cart', {\n    items: [{ item_id: variant, quantity: qty }]\n  });\n});\n</script>"
+          }
+        ],
+        "firingTriggerId": ["2147483647"]
+      },
+
+      {
+        "name": "TPS - GA4 Begin Checkout",
+        "type": "html",
+        "parameter": [
+          {
+            "key": "html",
+            "type": "template",
+            "value": "<script>\ndocument.addEventListener('click', function(e){\n  const btn = e.target.closest(\"form[action='/cart'] [type='submit']\");\n  if (!btn) return;\n  window.TPS_GA4.send('begin_checkout');\n});\n</script>"
+          }
+        ],
+        "firingTriggerId": ["2147483647"]
+      }
+    ],
+
+    "trigger": [
+      {
+        "triggerId": "2147483647",
+        "name": "All Pages",
+        "type": "PAGEVIEW"
+      }
+    ]
+  }
+}

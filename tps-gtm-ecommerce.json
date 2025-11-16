@@ -1,0 +1,165 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2025-11-16T00:00:00Z",
+  "containerVersion": {
+    "container": {
+      "publicId": "GTM-WD2W3MT8",
+      "accountId": "0000000000",
+      "containerId": "0000000000",
+      "name": "TPS STAR – ECOMMERCE WORKER",
+      "domainName": ["www.thepetsociety.paris"],
+      "usageContext": ["WEB"]
+    },
+    "containerVersionId": "1",
+    "tags": [
+      {
+        "tagId": "1",
+        "name": "TPS – Add to cart → Worker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\ntry {\n  if (typeof tpsTrack === \"function\") {\n    tpsTrack(\"add_to_cart\", {\n      variant_id: {{DLV – variant_id}},\n      quantity: {{DLV – quantity}}\n    });\n  } else {\n    console.warn(\"tpsTrack not available (add_to_cart)\");\n  }\n} catch (e) {\n  console.warn(\"TPS GTM add_to_cart error\", e);\n}\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["1001"]
+      },
+      {
+        "tagId": "2",
+        "name": "TPS – Begin checkout → Worker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\ntry {\n  if (typeof tpsTrack === \"function\") {\n    tpsTrack(\"begin_checkout\", {});\n  } else {\n    console.warn(\"tpsTrack not available (begin_checkout)\");\n  }\n} catch (e) {\n  console.warn(\"TPS GTM begin_checkout error\", e);\n}\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["1002"]
+      },
+      {
+        "tagId": "3",
+        "name": "TPS – Purchase → Worker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\ntry {\n  var items = {{DLV – items}};\n  if (typeof tpsTrack === \"function\") {\n    tpsTrack(\"purchase\", {\n      transaction_id: \"{{DLV – transaction_id}}\",\n      value: {{DLV – value}},\n      currency: \"{{DLV – currency}}\",\n      items: items\n    });\n  } else {\n    console.warn(\"tpsTrack not available (purchase)\");\n  }\n} catch (e) {\n  console.warn(\"TPS GTM purchase error\", e);\n}\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["1003"]
+      }
+    ],
+    "triggers": [
+      {
+        "triggerId": "1001",
+        "name": "EV – tps_add_to_cart",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {"key": "arg0", "type": "TEMPLATE", "value": "{{_event}}"},
+              {"key": "arg1", "type": "TEMPLATE", "value": "tps_add_to_cart"}
+            ]
+          }
+        ]
+      },
+      {
+        "triggerId": "1002",
+        "name": "EV – tps_begin_checkout",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {"key": "arg0", "type": "TEMPLATE", "value": "{{_event}}"},
+              {"key": "arg1", "type": "TEMPLATE", "value": "tps_begin_checkout"}
+            ]
+          }
+        ]
+      },
+      {
+        "triggerId": "1003",
+        "name": "EV – tps_purchase",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {"key": "arg0", "type": "TEMPLATE", "value": "{{_event}}"},
+              {"key": "arg1", "type": "TEMPLATE", "value": "tps_purchase"}
+            ]
+          }
+        ]
+      }
+    ],
+    "variables": [
+      {
+        "variableId": "2001",
+        "name": "DLV – variant_id",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "variant_id"}
+        ]
+      },
+      {
+        "variableId": "2002",
+        "name": "DLV – quantity",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "quantity"}
+        ]
+      },
+      {
+        "variableId": "2003",
+        "name": "DLV – transaction_id",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "transaction_id"}
+        ]
+      },
+      {
+        "variableId": "2004",
+        "name": "DLV – value",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "value"}
+        ]
+      },
+      {
+        "variableId": "2005",
+        "name": "DLV – currency",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "currency"}
+        ]
+      },
+      {
+        "variableId": "2006",
+        "name": "DLV – items",
+        "type": "vdl",
+        "parameter": [
+          {"key": "name", "type": "TEMPLATE", "value": "items"}
+        ]
+      }
+    ]
+  }
+}

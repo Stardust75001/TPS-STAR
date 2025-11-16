@@ -11,63 +11,48 @@
   {% if settings.browser_tab_enable %}
     data-inactive-tab-text="{{ settings.browser_tab_text }}"
   {% endif %}
->
+
   <head>
+    <!-- Google Tag Manager -->
+    <script>
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id=GTM-WD2W3MT8'+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-WD2W3MT8');
+    </script>
+    <!-- End Google Tag Manager -->
+
     {%- render 'integrations' -%}
     {%- render 'tps-debug-simple' -%}
 
-    {%- comment -%} DEBUG TEMPORAIRE - Vérification des metafields {%- endcomment -%}
+    <!-- DEBUG Metafields -->
     <script>console.log('TPS mf:', {{ shop.metafields.custom_integrations | json }} );</script>
 
-    {% comment %} Google Analytics 4 {% endcomment %}
-    {% if settings.google_analytics_4_measurement_id != blank %}
-      <!-- Google tag (gtag.js) -->
-      <script async src="https://www.googletagmanager.com/gtag/js?id={{ settings.google_analytics_4_measurement_id }}"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '{{ settings.google_analytics_4_measurement_id }}');
-      </script>
-    {% endif %}
+    <!-- ⚠️ IMPORTANT : GA4 gtag.js a été retiré pour éviter tout double tracking -->
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="{{ settings.color_primary }}">
     <meta name="language" content="{{ request.locale.iso_code }}">
+
     {% if template.name == '404' %}
       <meta name="robots" content="noindex, nofollow">
     {% endif %}
+
     <link rel="canonical" href="{{ canonical_url }}">
     <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
     <link rel="preconnect" href="https://fonts.shopifycdn.com" crossorigin>
 
+    <!-- LANG ALT LINKS -->
     <link rel="alternate" hreflang="fr" href="{{ canonical_url | replace: '/de', '/fr' }}">
     <link rel="alternate" hreflang="de" href="{{ canonical_url | replace: '/fr', '/de' }}">
-    <link
-      rel="alternate"
-      hreflang="x-default"
-      href="{{ canonical_url | replace: '/fr', '' | replace: '/de', '' }}"
-    >
+    <link rel="alternate" hreflang="x-default" href="{{ canonical_url | replace: '/fr', '' | replace: '/de', '' }}">
 
     {% unless settings.favicon == blank %}
-      <link
-        rel="icon"
-        type="image/png"
-        sizes="16x16"
-        href="{{ settings.favicon | image_url: width: 16, height: 16, crop: 'center' }}"
-      >
-      <link
-        rel="icon"
-        type="image/png"
-        sizes="32x32"
-        href="{{ settings.favicon | image_url: width: 32, height: 32, crop: 'center' }}"
-      >
-      <link
-        rel="apple-touch-icon"
-        sizes="180x180"
-        href="{{ settings.favicon | image_url: width: 180, height: 180, crop: 'center' }}"
-      >
+      <link rel="icon" type="image/png" sizes="16x16" href="{{ settings.favicon | image_url: width: 16, height: 16, crop: 'center' }}">
+      <link rel="icon" type="image/png" sizes="32x32" href="{{ settings.favicon | image_url: width: 32, height: 32, crop: 'center' }}">
+      <link rel="apple-touch-icon" sizes="180x180" href="{{ settings.favicon | image_url: width: 180, height: 180, crop: 'center' }}">
     {% endunless %}
 
     <title>
@@ -76,6 +61,7 @@
       {% if current_page != 1 %} – Page {{ current_page }}{% endif %}
       {% unless page_title contains shop.name %} – {{ shop.name }}{% endunless %}
     </title>
+
     {% if page_description -%}
       <meta name="description" content="{{ page_description | escape }}">
     {%- endif %}
@@ -83,6 +69,7 @@
     {% render 'seo-meta-tags' %}
     {% render 'structured-data' %}
     {{ content_for_header }}
+
     {% style %}{{ settings.code_css }}{% endstyle %}
 
     <link href="{{ 'vendor-bootstrap.min.css' | asset_url }}" rel="stylesheet">
@@ -115,21 +102,27 @@
       });
     </script>
 
-{%- comment -%} Sentry intégré via integrations.liquid {%- endcomment -%}
-
     {{ settings.code_javascript }}
     {{ settings.code_head }}
     {% render 'shogun-head' %}
-    ...
+
+    <!-- Ahrefs -->
     <script
       src="https://analytics.ahrefs.com/analytics.js"
       data-key="7wUOKONM0Qb9EnacrK2nGg"
-      async
-    ></script>
-    {%- comment -%} TPS-STAR Universal Tracking System - All platforms managed via snippets/integrations.liquid {%- endcomment -%}
+      async defer crossorigin="anonymous">
+    </script>
+
   </head>
 
   <body class="{{ request.page_type | prepend: 'page-type-' }}">
+    <!-- Google Tag Manager (noscript) -->
+    <noscript>
+      <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WD2W3MT8"
+      height="0" width="0" style="display:none;visibility:hidden"></iframe>
+    </noscript>
+    <!-- End Google Tag Manager (noscript) -->
+
     <a class="visually-hidden-focusable" href="#main">
       {{- 'general.accessibility.skip_content' | t -}}
     </a>
@@ -147,30 +140,30 @@
           {% render 'social-icons-no-flags' %}
         </div>
         <div class="language-selector-right">
-          <a href="/fr"><img src="{{ 'flag-fr.png' | asset_url }}" class="flag-icon" alt="FR" width="24" height="16"></a>
-          <a href="/"><img src="{{ 'flag-en.png' | asset_url }}" class="flag-icon" alt="EN" width="24" height="16"></a>
-          <a href="/de"><img src="{{ 'flag-de.png' | asset_url }}" class="flag-icon" alt="DE" width="24" height="16"></a>
+          <a href="/fr"><img loading="lazy" src="{{ 'flag-fr.png' | asset_url }}" class="flag-icon" alt="FR"></a>
+          <a href="/"><img loading="lazy" src="{{ 'flag-en.png' | asset_url }}" class="flag-icon" alt="EN"></a>
+          <a href="/de"><img loading="lazy" src="{{ 'flag-de.png' | asset_url }}" class="flag-icon" alt="DE"></a>
         </div>
       </div>
+
       {% section 'discount-bar' %}
+
       <div class="announcement-text shipping-notice">
         {% assign lang = request.locale.iso_code %}
         <a href="{% if lang == 'fr' %}/fr/pages/eee{% elsif lang == 'de' %}/de/pages/eee{% else %}/pages/eee{% endif %}">
           {{- 'announcement.shipping_notice' | t -}}
         </a>
       </div>
+
       {% section 'navbar' %}
       {% section 'stories-bar-sticky-dynamic' %}
     </div>
 
-    <main
-      id="main"
-      {% if template.name == 'index' %}
-        class="homepage-main"
-      {% endif %}
-    >
-      {{ content_for_layout }}
-    </main>
+    <div class="main-content-fixed">
+      <main id="main" {% if template.name == 'index' %}class="homepage-main"{% endif %}>
+        {{ content_for_layout }}
+      </main>
+    </div>
 
     {% sections 'footer-group' %}
     {% render 'offcanvas-cart' %}
@@ -178,7 +171,7 @@
     {% render 'offcanvas-wishlist' %}
     {% render 'back-to-top' %}
 
-<!-- Scripts déplacés ici pour améliorer le LCP -->
+    <!-- Scripts -->
     <script src="{{ 'shopify_common.js' | shopify_asset_url }}" defer></script>
     <script src="{{ 'vendor-bootstrap.bundle.min.js' | asset_url }}" defer></script>
     <script src="{{ 'vendor-splide.min.js' | asset_url }}" defer></script>
@@ -190,19 +183,59 @@
     <script src="{{ 'product.js' | asset_url }}" async></script>
     <script src="{{ 'cart.js' | asset_url }}" async></script>
     <script src="{{ 'custom.js' | asset_url }}" async></script>
+
     {% if settings.wishlist_enable %}
       <script src="{{ 'wishlist.js' | asset_url }}" async></script>
     {% endif %}
+
     <script src="{{ 'stories-tooltips.js' | asset_url }}" defer></script>
 
-    {%- comment -%} TPS-STAR Universal Tracking System - Loaded in <head> via snippets/integrations.liquid {%- endcomment -%}
-
-    <!-- 🌐 Cloudflare Web Analytics (RUM Beacon) -->
+    <!-- Cloudflare RUM -->
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
       data-cf-beacon='{"token": "21f24707e94db18bc941b35cf6223"}'>
     </script>
-    <!-- End Cloudflare Web Analytics -->
+
+    <!-- TPS DataLayer Events -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      window.dataLayer = window.dataLayer || [];
+
+      // Track ADD TO CART
+      document.addEventListener("click", function (e) {
+        const addBtn = e.target.closest(
+          "button[name='add'], button.add-to-cart, form[action*='/cart/add'] [type='submit']"
+        );
+        if (addBtn) {
+          try {
+            const form = addBtn.closest("form");
+            const idInput = form && form.querySelector("[name='id']");
+            const qtyInput = form && form.querySelector("[name='quantity']");
+            const variantId = idInput ? idInput.value : null;
+            const quantity = qtyInput && qtyInput.value ? parseInt(qtyInput.value, 10) : 1;
+
+            window.dataLayer.push({
+              event: "tps_add_to_cart",
+              variant_id: variantId,
+              quantity: quantity
+            });
+          } catch (err) {
+            console.warn("TPS add_to_cart push error", err);
+          }
+        }
+
+        // Track BEGIN CHECKOUT
+        const checkoutBtn = e.target.closest(
+          "form[action='/cart'] [type='submit'], a[href*='/checkout']"
+        );
+        if (checkoutBtn) {
+          window.dataLayer.push({
+            event: "tps_begin_checkout"
+          });
+        }
+      });
+    });
+    </script>
+    <!-- End TPS DataLayer Events -->
 
   </body>
 </html>
-
